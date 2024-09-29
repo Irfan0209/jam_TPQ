@@ -1,18 +1,19 @@
 void runningInfo(){
-   
+                   
   byte Speed = 60;
   static int x; 
   static unsigned long lsRn;
   unsigned long Tmr = millis();
-  static char *msg[] = {"TEST RUNNING TEXT"};
+  const int sizeChar = setText.length()+1;
   
-  int fullScroll = Disp.textWidth(msg[0]) + Disp.width() + 10;
+ // msg = msg1;
+  int fullScroll = Disp.textWidth(text) + Disp.width() + 10;
 
   if((Tmr-lsRn)> Speed)
     { lsRn = Tmr;
       if (x < fullScroll) { 
         ++x; 
-        Serial.println(String()+"x:" + x); 
+        //Serial.println(String()+"x:" + x); 
       }
       else {  
         x=0; 
@@ -20,7 +21,7 @@ void runningInfo(){
       }
          
       fType(0); 
-      Disp.drawText(Disp.width() - x, 9, msg[0]);  
+      Disp.drawText(Disp.width() - x, 9, text);  
     }
 }
 
@@ -65,11 +66,13 @@ void runAnimasiDate(){
   const int Speed = 70;
   int daynow   = now.DayOfWeek();    // load day Number
   char buff_date[50];
-  islam();
+  
   //Serial.println(String()+"daynow:" + daynow); 
 
   sprintf(buff_date,"%s %s %02d-%02d-%04d %02d %s %02dH",Hari[daynow],pasar[jumlahhari()%5],now.Day(),now.Month(),now.Year(),tanggalHijriah.tanggal, namaBulanHijriah[tanggalHijriah.bulan - 1], tanggalHijriah.tahun);
   //sprintf(tanggalanhij, "%02d %s %02dH", tanggalHijriah.tanggal, namaBulanHijriah[tanggalHijriah.bulan - 1], tanggalHijriah.tahun);
+  Serial.println("tanggalHijriah.bulan - 1:" + String(tanggalHijriah.bulan - 1));
+  Serial.println("tanggalHijriah.tahun    :" + String(tanggalHijriah.tahun));
   int fullScroll = Disp.textWidth(buff_date) + Disp.width() ;
 
     if((Tmr-lsRn)> Speed)

@@ -7,6 +7,8 @@
 Program V1.0
 
 ==================================*/
+#include <ESP8266WiFi.h>
+#include <ESP8266WebServer.h>
 
 #include <HJS589.h>
 
@@ -36,6 +38,7 @@ Program V1.0
 RtcDS3231<TwoWire> Rtc(Wire);
 HJS589  Disp(DISPLAYS_WIDE, DISPLAYS_HIGH);  // Jumlah Panel P10 yang digunakan (KOLOM,BARIS)
 RtcDateTime now;
+ESP8266WebServer server(80);
 
 const char *pasar[]     ={"WAGE", "KLIWON", "LEGI", "PAHING", "PON"}; 
 int maxday[]            = {31, 28, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31};
@@ -88,7 +91,16 @@ Tanggal tanggalHijriah;
 TanggalJawa tanggalJawa;
 JamDanMenit waktuMagrib;
 
+// Pengaturan hotspot WiFi dari ESP8266
+const char* ssid = "ESP_Hotspot";
+const char* password = "00000000";
 
+// Variabel untuk waktu, tanggal, teks berjalan, dan kecerahan
+String setJam = "00:00:00";
+String setTanggal = "01-01-2024";
+String setText = "Selamat Datang!";
+int brightness = 100;
+static char text[200];
 
 //----------------------------------------------------------------------
 // HJS589 P10 FUNGSI TAMBAHAN UNTUK NODEMCU ESP8266
@@ -111,6 +123,54 @@ void Disp_init() {
   Disp.clear();
   Disp.setBrightness(20);
   Serial.println("Setup dmd selesai");
+}
+
+void AP_init(){
+  // Konfigurasi hotspot WiFi dari ESP8266
+  WiFi.softAP(ssid, password);
+  IPAddress myIP = WiFi.softAPIP();
+  Serial.print("AP IP address: ");
+  Serial.println(myIP);
+
+  // Atur server untuk menerima permintaan set waktu, tanggal, teks, dan kecerahan
+  server.on("/setTime", handleSetTime);
+  server.begin();
+  Serial.println("Server dimulai.");  
+}
+  
+// Fungsi untuk mengatur jam, tanggal, running text, dan kecerahan
+void handleSetTime(){
+  if (server.hasArg("jam")) {
+    setJam = server.arg("jam"); Serial.println("setJam:"+String(setJam));
+    
+    RtcDateTime now = Rtc.GetDateTime();
+    int jam   = setJam.substring(0, 2).toInt();
+    int menit = setJam.substring(3, 5).toInt();
+    int detik = setJam.substring(6, 8).toInt();
+    Rtc.SetDateTime(RtcDateTime(now.Year(), now.Month(), now.Day(), jam, menit, detik));
+    
+  } 
+  if (server.hasArg("tanggal")) {
+    RtcDateTime now = Rtc.GetDateTime();
+
+    setTanggal = server.arg("tanggal"); Serial.println(String()+"setTanggal:"+setTanggal);
+    int day   = setTanggal.substring(0, 2).toInt();    // Ambil 2 karakter pertama (hari)
+    int month = setTanggal.substring(3, 5).toInt();  // Ambil karakter 4 dan 5 (bulan)
+    int year  = setTanggal.substring(6, 10).toInt();  // Ambil karakter 7 sampai 10 (tahun)
+
+    Rtc.SetDateTime(RtcDateTime(year, month, day, now.Hour(), now.Minute(), now.Second()));
+  }
+  if (server.hasArg("text")) {
+    setText = server.arg("text"); 
+    setText.toCharArray(text,setText.length()+1);
+    Serial.println(String()+"setText:"+setText);
+    Serial.println(String()+"text   :"+text);
+  }
+  if (server.hasArg("brightness")) {
+    brightness = server.arg("brightness").toInt(); Serial.println(String()+"brightness:"+brightness);
+    Disp.setBrightness(brightness);
+  }
+  server.send(200, "text/plain", "Pengaturan berhasil diupdate!");
 }
 
 void setup() {
@@ -143,11 +203,15 @@ void setup() {
       delay(80);
   }
   Disp_init();
-
+  AP_init();
 }
 byte tampilan=1;
 void loop() {
 
+  server.handleClient(); // Menangani permintaan dari MIT App Inventor
+  
+  islam();
+  
   runningInfo();
   switch(tampilan){
     case 1 :
