@@ -5,9 +5,8 @@ void runningInfo(){
   static unsigned long lsRn;
   unsigned long Tmr = millis();
   static char *msg[] = {"TEST RUNNING TEXT"};
-  //int size = Disp.textWidth(msg[0]);
+  
   int fullScroll = Disp.textWidth(msg[0]) + Disp.width() + 10;
-  //Serial.println(String()+"fullScroll:" + fullScroll); //debugging
 
   if((Tmr-lsRn)> Speed)
     { lsRn = Tmr;
@@ -33,15 +32,11 @@ void runAnimasiJam(){
   static unsigned long   lsRn;
   unsigned long          Tmr = millis();
   int dot    = now.Second();
-  //static bool       state = true;
-  //static int x; 
-  //int daynow   = now.DayOfWeek();    // load day Number
-
   char buff_jam[20];
-  //
+  
   if(dot%2){sprintf(buff_jam,"%02d:%02d",now.Hour(),now.Minute());}
   else{sprintf(buff_jam,"%02d %02d",now.Hour(),now.Minute());}
-  //
+  
 
   
   //Serial.println(String()+"fullScroll:" + fullScroll); //debugging
@@ -49,15 +44,15 @@ void runAnimasiJam(){
   if((Tmr-lsRn)>75) 
       { 
         if(s==0 and y<9){lsRn=Tmr;y++; }
-        if(s==1 and y>0){lsRn=Tmr;y--; }
-        if(y == 1){ Disp.drawText(0,0, "          "); }
+        if(s==1 and y>0){lsRn=Tmr;y--; if(y == 1){ Disp.drawText(0,0, "          "); }}
+        
       }
-   if((Tmr-lsRn)>5000 and y ==9) {s=1;}
+   if((Tmr-lsRn)>10000 and y ==9) {s=1;}
 
    if (y == 0 and s==1) { s=0; tampilan = 2;}
   
   fType(0); Disp.drawText(2,y-9, buff_jam); 
-  Serial.println("y:" + String(y-9)); 
+  //Serial.println("y:" + String(y-9)); 
   
 }
 
@@ -70,9 +65,11 @@ void runAnimasiDate(){
   const int Speed = 70;
   int daynow   = now.DayOfWeek();    // load day Number
   char buff_date[50];
-  Serial.println(String()+"daynow:" + daynow); 
+  islam();
+  //Serial.println(String()+"daynow:" + daynow); 
 
-  sprintf(buff_date,"%s %s %02d-%02d-%04d",Hari[daynow],pasar[jumlahhari()%5],now.Day(),now.Month(),now.Year());
+  sprintf(buff_date,"%s %s %02d-%02d-%04d %02d %s %02dH",Hari[daynow],pasar[jumlahhari()%5],now.Day(),now.Month(),now.Year(),tanggalHijriah.tanggal, namaBulanHijriah[tanggalHijriah.bulan - 1], tanggalHijriah.tahun);
+  //sprintf(tanggalanhij, "%02d %s %02dH", tanggalHijriah.tanggal, namaBulanHijriah[tanggalHijriah.bulan - 1], tanggalHijriah.tahun);
   int fullScroll = Disp.textWidth(buff_date) + Disp.width() ;
 
     if((Tmr-lsRn)> Speed)

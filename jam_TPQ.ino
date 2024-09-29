@@ -41,6 +41,11 @@ const char *pasar[]     ={"WAGE", "KLIWON", "LEGI", "PAHING", "PON"};
 int maxday[]            = {31, 28, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31};
 const char *Hari[] =    {"MINGGU","SENIN","SELASA","RABU","KAMIS","JUM'AT","SABTU"};
 const char *sholatt[]   = {"SUBUH","TERBIT","DZUHUR","ASHAR","TRBNM","MAGRIB","ISYA"};
+char namaBulanHijriah[][14] = {"Muharram", "Safar", "Rabiul awal",
+                               "RabiulAkhir", "JumadilAwal", "JumadilAkir", "Rajab",
+                               "Sya'ban", "Ramadhan", "Syawal",
+                               "Dzulkaidah", "Dzulhijjah"
+                              };
 
 int         DWidth  = Disp.width();
 int         DHeight = Disp.height();
