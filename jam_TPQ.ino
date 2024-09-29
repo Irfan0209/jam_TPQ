@@ -15,6 +15,7 @@ Program V1.0
 #include <EEPROM.h>
 
 #include <fonts/SystemFont5x7.h>
+#include <fonts/Font4x6.h>
 
 //SETUP DMD
 #define DISPLAYS_WIDE 1
@@ -24,6 +25,7 @@ Program V1.0
 #define LED   2 // LED Internal
 
 #define Font0 SystemFont5x7
+#define Font1 Font4x6
 
 //////////hijriyah
 #define epochHijriah          1948439.5f //math.harvard.edu
@@ -37,7 +39,7 @@ RtcDateTime now;
 
 const char *pasar[]     ={"WAGE", "KLIWON", "LEGI", "PAHING", "PON"}; 
 int maxday[]            = {31, 28, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31};
-const char *Hari[7][12] = {"MINGGU","SENIN","SELASA","RABU","KAMIS","JUM'AT","SABTU"};
+const char *Hari[] =    {"MINGGU","SENIN","SELASA","RABU","KAMIS","JUM'AT","SABTU"};
 const char *sholatt[]   = {"SUBUH","TERBIT","DZUHUR","ASHAR","TRBNM","MAGRIB","ISYA"};
 
 int         DWidth  = Disp.width();
@@ -138,10 +140,20 @@ void setup() {
   Disp_init();
 
 }
-
+byte tampilan=1;
 void loop() {
+
   runningInfo();
-  runAnimasi();
+  switch(tampilan){
+    case 1 :
+     runAnimasiJam();
+    break;
+    case 2 :
+     runAnimasiDate();
+    break;
+  };
+  
+  
 }
 
 
@@ -158,7 +170,7 @@ void Buzzer(uint8_t state)
 void fType(int x)
   {
     if(x==0)       Disp.setFont(Font0);
-    // else if(x==1)  Disp.setFont(Font1); 
+    else if(x==1)   Disp.setFont(Font1); 
     // else if(x==2)  Disp.setFont(Font2);
     // else if(x==3)  Disp.setFont(Font3);
     // else if(x==4)  Disp.setFont(Font4);
