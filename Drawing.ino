@@ -19,9 +19,10 @@ void runningInfo(){
         x=0; 
         return;
       }
-         
-      fType(0); 
-      Disp.drawText(Disp.width() - x, 9, text);  
+
+         if(      mode == 1 ){fType(0);  Disp.drawText(Disp.width() - x, 9, text); }
+         else if( mode == 2 ){fType(2);  Disp.drawText(Disp.width() - x, 0, text); }
+      
     }
 }
 
@@ -38,23 +39,18 @@ void runAnimasiJam(){
   if(dot%2){sprintf(buff_jam,"%02d:%02d",now.Hour(),now.Minute());}
   else{sprintf(buff_jam,"%02d %02d",now.Hour(),now.Minute());}
   
-
-  
-  //Serial.println(String()+"fullScroll:" + fullScroll); //debugging
-  //sprintf(out,"%s %s %02d-%02d-%04d  %02d-%s-%dH\0",daysOfTheWeek[daynow-1],pasar[jumlahhari()%5],now.day(),now.month(),now.year(),nowH.hD,mounthJawa[nowH.hM-1],nowH.hY);
   if((Tmr-lsRn)>75) 
       { 
         if(s==0 and y<9){lsRn=Tmr;y++; }
         if(s==1 and y>0){lsRn=Tmr;y--; if(y == 1){ Disp.drawText(0,0, "          "); }}
-        
       }
    if((Tmr-lsRn)>10000 and y ==9) {s=1;}
 
    if (y == 0 and s==1) { s=0; tampilan = 2;}
   
-  fType(0); Disp.drawText(2,y-9, buff_jam); 
-  //Serial.println("y:" + String(y-9)); 
-  
+  fType(0); 
+  Disp.drawText(2,y-9, buff_jam); 
+
 }
 
 void runAnimasiDate(){
@@ -66,14 +62,10 @@ void runAnimasiDate(){
   const int Speed = speedDate;
   int daynow   = now.DayOfWeek();    // load day Number
   char buff_date[50];
-  
-  //Serial.println(String()+"daynow:" + daynow); 
 
   RtcDateTime now = Rtc.GetDateTime();
   sprintf(buff_date,"%s %s %02d-%02d-%04d %02d %s %02dH",Hari[daynow],pasar[jumlahhari()%5],now.Day(),now.Month(),now.Year(),tanggalHijriah.tanggal, namaBulanHijriah[tanggalHijriah.bulan - 1], tanggalHijriah.tahun);
-  //sprintf(tanggalanhij, "%02d %s %02dH", tanggalHijriah.tanggal, namaBulanHijriah[tanggalHijriah.bulan - 1], tanggalHijriah.tahun);
-  // Serial.println("tanggalHijriah.bulan - 1:" + String(tanggalHijriah.bulan - 1));
-  // Serial.println("tanggalHijriah.tahun    :" + String(tanggalHijriah.tahun));
+ 
   int fullScroll = Disp.textWidth(buff_date) + Disp.width() ;
 
     if((Tmr-lsRn)> Speed)
@@ -89,7 +81,7 @@ void runAnimasiDate(){
           
         }
       }
-    fType(0); Disp.drawText(Disp.width() - x,0, buff_date);
-  
+    fType(0); 
+    Disp.drawText(Disp.width() - x,0, buff_date);
 
 }

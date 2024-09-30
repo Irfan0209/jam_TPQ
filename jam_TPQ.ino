@@ -8,7 +8,7 @@ Program V1.0
 
 ==================================*/
 /*------------------------------------------------------------------------------------
-http://<ESP_IP_ADDRESS>/setTime?jam=12:00:00&tanggal=01-01-2024&text1=Hello&text2=Welcome&speedText1=100&speedText2=150&brightness=200&newPassword=newpassword123
+http://<ESP_IP_ADDRESS>/setTime?jam=12:00:00&tanggal=01-01-2024&text=Hello&speedDate=60&speedText=70&brightness=20&newPassword=newpassword123&mode=1
 -------------------------------------------------------------------------------------*/
 #include <ESP8266WiFi.h>
 #include <ESP8266WebServer.h>
@@ -17,10 +17,11 @@ http://<ESP_IP_ADDRESS>/setTime?jam=12:00:00&tanggal=01-01-2024&text1=Hello&text
 
 #include <Wire.h>
 #include <RtcDS3231.h>
-#include <EEPROM.h>
+#include <ESP_EEPROM.h>
 
 #include <fonts/SystemFont5x7.h>
 #include <fonts/Font4x6.h>
+#include <fonts/EMSans8x16.h>
 
 //SETUP DMD
 #define DISPLAYS_WIDE 1
@@ -31,6 +32,7 @@ http://<ESP_IP_ADDRESS>/setTime?jam=12:00:00&tanggal=01-01-2024&text1=Hello&text
 
 #define Font0 SystemFont5x7
 #define Font1 Font4x6
+#define Font2 EMSans8x16
 
 //////////hijriyah
 #define epochHijriah          1948439.5f //math.harvard.edu
@@ -38,7 +40,7 @@ http://<ESP_IP_ADDRESS>/setTime?jam=12:00:00&tanggal=01-01-2024&text1=Hello&text
 #define chijir                0
 
 // Ukuran EEPROM (pastikan cukup untuk semua data)
-#define EEPROM_SIZE 512
+#define EEPROM_SIZE 200
 
 //create object
 RtcDS3231<TwoWire> Rtc(Wire);
@@ -98,30 +100,32 @@ TanggalJawa tanggalJawa;
 JamDanMenit waktuMagrib;
 
 // Pengaturan hotspot WiFi dari ESP8266
- char ssid[20] = "JAM_PANEL";
+ char ssid[20]     = "JAM_PANEL";
  char password[20] = "00000000";
 
-// Variabel untuk waktu, tanggal, teks berjalan, dan kecerahan
-String setJam = "00:00:00";
+// Variabel untuk waktu, tanggal, teks berjalan, tampilan ,dan kecerahan
+String setJam     = "00:00:00";
 String setTanggal = "01-01-2024";
-String setText = "Selamat Datang!";
-int brightness = 100;
-static char text[200];
-int speedDate = 70; // Kecepatan default text 1
-int speedText = 60; // Kecepatan default text 2
+String setText    = "Selamat Datang!";
+int brightness    = 100;
+char text[200];
+int speedDate     = 70; // Kecepatan default date
+int speedText     = 60; // Kecepatan default text 
+byte tampilan     = 1;
+byte mode         = 1;
 
 //----------------------------------------------------------------------
 // HJS589 P10 FUNGSI TAMBAHAN UNTUK NODEMCU ESP8266
 
 void ICACHE_RAM_ATTR refresh() { 
-  
+
   Disp.refresh();
   timer0_write(ESP.getCycleCount() + 80000);  
 
 }
 
 void Disp_init() {
-  EEPROM.begin(100); // Inisialisasi EEPROM dengan ukuran yang ditentukan
+
   Disp.start();
   noInterrupts();
   timer0_isr_init();
@@ -129,8 +133,9 @@ void Disp_init() {
   timer0_write(ESP.getCycleCount() + 80000);
   interrupts();
   Disp.clear();
-  Disp.setBrightness(20);
+  Disp.setBrightness(brightness);
   Serial.println("Setup dmd selesai");
+
 }
 
 void AP_init(){
@@ -149,92 +154,83 @@ void AP_init(){
 // Fungsi untuk mengatur jam, tanggal, running text, dan kecerahan
 void handleSetTime(){
   Serial.println("hansle run");
-  bool saveRequired = false;
+  Buzzer(1);
   if (server.hasArg("jam")) {
     setJam = server.arg("jam"); 
+
     Serial.println("setJam:"+String(setJam));
     RtcDateTime now = Rtc.GetDateTime();
     int jam   = setJam.substring(0, 2).toInt();
     int menit = setJam.substring(3, 5).toInt();
     int detik = setJam.substring(6, 8).toInt();
     Rtc.SetDateTime(RtcDateTime(now.Year(), now.Month(), now.Day(), jam, menit, detik));
-    saveRequired = true;
   } 
   if (server.hasArg("tanggal")) {
     setTanggal = server.arg("tanggal"); 
-    Serial.println(String()+"setTanggal:"+setTanggal);
 
-    //Serial.println(String()+"setTanggal:"+setTanggal);
+    Serial.println(String()+"setTanggal:"+setTanggal);
     RtcDateTime now = Rtc.GetDateTime();
     int day   = setTanggal.substring(0, 2).toInt();    // Ambil 2 karakter pertama (hari)
     int month = setTanggal.substring(3, 5).toInt();  // Ambil karakter 4 dan 5 (bulan)
     int year  = setTanggal.substring(6, 10).toInt();  // Ambil karakter 7 sampai 10 (tahun)
     Rtc.SetDateTime(RtcDateTime(year, month, day, now.Hour(), now.Minute(), now.Second()));
-    saveRequired = true;  
   }
   if (server.hasArg("text")) {
     setText = server.arg("text"); 
-    
+
     setText.toCharArray(text,setText.length()+1);
     Serial.println(String()+"setText:"+setText);
     Serial.println(String()+"text   :"+text);
-//    saveStringToEEPROM(25, setText);
-//    EEPROM.commit();
+    saveStringToEEPROM(25, setText);
   }
   if (server.hasArg("brightness")) {
-    //Serial.println(String()+"brightness:"+brightness);
     brightness = server.arg("brightness").toInt(); 
+
     Serial.println(String()+"brightness:"+brightness);
     Disp.setBrightness(brightness);
-    //EEPROM.write(0, brightness);
-    //EEPROM.commit();
-
+    EEPROM.put(0, brightness);
   }
   if (server.hasArg("speedDate")) {
-    speedDate = server.arg("speedDate").toInt(); // Atur kecepatan text 1
+    speedDate = server.arg("speedDate").toInt(); // Atur kecepatan date
     Serial.println(String()+"speedDate:"+speedDate);
-    //EEPROM.write(5, speedDate);
-    //EEPROM.commit();
-
+    EEPROM.put(4, speedDate);
   }
   if (server.hasArg("speedText")) {
-    speedText = server.arg("speedText").toInt(); // Atur kecepatan text 2
+    speedText = server.arg("speedText").toInt(); // Atur kecepatan text
     Serial.println(String()+"speedText:"+speedText);
-    //EEPROM.write(10, speedText);
-    //EEPROM.commit();
+    EEPROM.put(8, speedText);
+  }
+  if (server.hasArg("mode")) {
+    mode = server.arg("mode").toInt(); // Atur mode
+    Serial.println(String()+"mode:"+mode);
+    Disp.clear();
+    if( mode == 1 ){ tampilan=1; }
+    else           { tampilan=0; }
+    EEPROM.put(12, mode);
   }
   if (server.hasArg("newPassword")) {
     String newPassword = server.arg("newPassword");
-    Serial.println(String()+"newPassword:"+newPassword);
-    newPassword.toCharArray(password, newPassword.length() + 1); // Set password baru
-    WiFi.softAP(ssid, password); // Restart AP dengan password baru
-//    saveStringToEEPROM(15, password); // Simpan password AP
-//    EEPROM.commit();
-    server.send(200, "text/plain", "Password AP berhasil diubah, silakan sambungkan ulang!");
-    delay(2000);
-    ESP.restart(); // Restart ESP untuk menerapkan perubahan AP
-  } //EEPROM.commit();
-    //EEPROM.end();
-    server.send(200, "text/plain", "Pengaturan berhasil diupdate dan disimpan ke EEPROM!");
+    if(newPassword.length()==8){
+      Serial.println(String()+"newPassword:"+newPassword);
+      newPassword.toCharArray(password, newPassword.length() + 1); // Set password baru
+      saveStringToEEPROM(13, password); // Simpan password AP
+      server.send(200, "text/plain", "Password AP berhasil diubah, silakan sambungkan ulang!");
+    }else{ Buzzer(2); Serial.println("panjang password melebihi 8 karakter"); }
+  } 
+   // write the data to EEPROM
+  boolean ok1 = EEPROM.commit();
+  Serial.println((ok1) ? "First commit OK" : "Commit failed");
+  delay(100);
+  server.send(200, "text/plain", "Pengaturan berhasil diupdate dan disimpan ke EEPROM!");
 }
 
-
-// Fungsi untuk menyimpan string ke EEPROM
-//void saveStringToEEPROM(int startAddr, String data) {
-//  char buff[100]; // Buffer untuk string yang akan dibaca
-//  int size = data.length()+1;
-//  data.toCharArray(buff, size);
-//  Serial.println(buff);
-//  EEPROM.put(startAddr,buff);
-//  data="";
-//}
 // Fungsi untuk menyimpan string ke EEPROM
 void saveStringToEEPROM(int startAddr, const String &data) {
   int len = data.length();
   for (int i = 0; i < len; i++) {
-    EEPROM.write(startAddr + i, data[i]);
+    EEPROM.put(startAddr + i, data[i]);
   }
-  EEPROM.write(startAddr + len, '\0'); // Null terminator
+  EEPROM.put(startAddr + len, '\0'); // Null terminator
 }
 
 // Fungsi untuk membaca string dari EEPROM
@@ -252,37 +248,23 @@ String readStringFromEEPROM(int startAddr) {
   return String(data);
 }
 
-// Simpan semua data ke EEPROM
-void saveToEEPROM() {}
-  // saveStringToEEPROM(0, setJam);
-  // saveStringToEEPROM(50, setTanggal);
-  
-  //delay(100);
-  
-  //delay(100);
-  
-  //delay(100);
-  
-  //delay(100);
-  
-  
-
 // Membaca semua data dari EEPROM
 void loadFromEEPROM() {
-  // setJam = readStringFromEEPROM(0);
-  // setTanggal = readStringFromEEPROM(50);
-  setText = readStringFromEEPROM(0);
-  brightness = EEPROM.read(100);
-  speedDate = EEPROM.read(200);
-  speedText = EEPROM.read(300);
-  String loadedPassword = readStringFromEEPROM(400); // Baca password dari EEPROM
+
+  setText   = readStringFromEEPROM(25);
+  brightness= EEPROM.read(0);
+  speedDate = EEPROM.read(4);
+  speedText = EEPROM.read(8);
+  mode      = EEPROM.read(12);
+  String loadedPassword = readStringFromEEPROM(13); // Baca password dari EEPROM
   loadedPassword.toCharArray(password, loadedPassword.length() + 1); // Set password AP
-  // Serial.println(String()+"setJam        :"+setJam);
-  // Serial.println(String()+"setTanggal    :"+setTanggal);
+  setText.toCharArray(text,setText.length()+1);
+  
   Serial.println(String()+"setText       :"+setText);
   Serial.println(String()+"brightness    :"+brightness);
   Serial.println(String()+"speedDate     :"+speedDate);
   Serial.println(String()+"speedText     :"+speedText);
+  Serial.println(String()+"mode          :"+mode);
   Serial.println(String()+"loadedPassword:"+loadedPassword);
 }
 
@@ -290,11 +272,10 @@ void setup() {
   Serial.begin(115200);
   pinMode(BUZZ, OUTPUT); 
   pinMode(LED, OUTPUT);
-  
-  
- 
-   // Load data dari EEPROM
-  //loadFromEEPROM();
+  EEPROM.begin(EEPROM_SIZE); // Inisialisasi EEPROM dengan ukuran yang ditentukan
+
+  // Load data dari EEPROM
+  loadFromEEPROM();
 
   int rtn = I2C_ClearBus(); // clear the I2C bus first before calling Wire.begin()
     if (rtn != 0) {
@@ -320,28 +301,27 @@ void setup() {
       Buzzer(0);
       delay(80);
   }
-  Disp_init();
-  AP_init();
+
+  Disp_init(); //Inisialisasi display
+  AP_init();   //Inisialisasi Access Pointt
+ 
 }
-byte tampilan=1;
+
 void loop() {
 
   server.handleClient(); // Menangani permintaan dari MIT App Inventor
   
   islam();
   
-  runningInfo();
+  runningInfo(); 
   switch(tampilan){
     case 1 :
      runAnimasiJam();
     break;
     case 2 :
-      
      runAnimasiDate();
     break;
   };
-  
-  
 }
 
 
@@ -349,21 +329,19 @@ void loop() {
 
 void Buzzer(uint8_t state)
   {
-    if(state ==1 ) //dapat dikasih kondisi jika diwaktu tertentu buzzer tidak aktif
-      {digitalWrite(BUZZ,HIGH);}
-    else 
+    if(state == 0 ) //dapat dikasih kondisi jika diwaktu tertentu buzzer tidak aktif
       {digitalWrite(BUZZ,LOW);}
+    else if(state == 1)
+      {digitalWrite(BUZZ,HIGH);}
+    else if(state == 2)
+      { for(int i = 0; i < 5; i++){ digitalWrite(BUZZ,HIGH); delay(80); digitalWrite(BUZZ,LOW); delay(80); } }
   }
 
 void fType(int x)
   {
-    if(x==0)       Disp.setFont(Font0);
-    else if(x==1)   Disp.setFont(Font1); 
-    // else if(x==2)  Disp.setFont(Font2);
-    // else if(x==3)  Disp.setFont(Font3);
-    // else if(x==4)  Disp.setFont(Font4);
-    //  else if(x==5) Disp.setFont(Font5);
-    // else if(x==6)  Disp.setFont(Font6);  
+    if(      x==0 ){  Disp.setFont(Font0); }
+    else if( x==1 ){  Disp.setFont(Font1); }
+    else if( x==2 ){  Disp.setFont(Font2); }
   }
 
  //----------------------------------------------------------------------
