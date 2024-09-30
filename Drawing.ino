@@ -1,6 +1,6 @@
 void runningInfo(){
                    
-  byte Speed = 60;
+  byte Speed = speedText;
   static int x; 
   static unsigned long lsRn;
   unsigned long Tmr = millis();
@@ -59,20 +59,21 @@ void runAnimasiJam(){
 
 void runAnimasiDate(){
 
-  RtcDateTime now = Rtc.GetDateTime();
+  
   static unsigned long   lsRn;
   unsigned long          Tmr = millis();
   static int x; 
-  const int Speed = 70;
+  const int Speed = speedDate;
   int daynow   = now.DayOfWeek();    // load day Number
   char buff_date[50];
   
   //Serial.println(String()+"daynow:" + daynow); 
 
+  RtcDateTime now = Rtc.GetDateTime();
   sprintf(buff_date,"%s %s %02d-%02d-%04d %02d %s %02dH",Hari[daynow],pasar[jumlahhari()%5],now.Day(),now.Month(),now.Year(),tanggalHijriah.tanggal, namaBulanHijriah[tanggalHijriah.bulan - 1], tanggalHijriah.tahun);
   //sprintf(tanggalanhij, "%02d %s %02dH", tanggalHijriah.tanggal, namaBulanHijriah[tanggalHijriah.bulan - 1], tanggalHijriah.tahun);
-  Serial.println("tanggalHijriah.bulan - 1:" + String(tanggalHijriah.bulan - 1));
-  Serial.println("tanggalHijriah.tahun    :" + String(tanggalHijriah.tahun));
+  // Serial.println("tanggalHijriah.bulan - 1:" + String(tanggalHijriah.bulan - 1));
+  // Serial.println("tanggalHijriah.tahun    :" + String(tanggalHijriah.tahun));
   int fullScroll = Disp.textWidth(buff_date) + Disp.width() ;
 
     if((Tmr-lsRn)> Speed)

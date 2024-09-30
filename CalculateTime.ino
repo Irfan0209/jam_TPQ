@@ -1,9 +1,9 @@
 //////hijiriyah voidku/////////////////////////////////////////////////
 void islam() {
   //
-  waktuMagrib = {17, 26};
+  waktuMagrib = {17, 24};
  
-
+  RtcDateTime now = Rtc.GetDateTime();
   tanggalMasehi.tanggal = now.Day();
   tanggalMasehi.bulan = now.Month();
   tanggalMasehi.tahun = now.Year() - 2000;
