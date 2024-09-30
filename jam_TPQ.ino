@@ -121,7 +121,7 @@ void ICACHE_RAM_ATTR refresh() {
 }
 
 void Disp_init() {
-  
+  EEPROM.begin(100); // Inisialisasi EEPROM dengan ukuran yang ditentukan
   Disp.start();
   noInterrupts();
   timer0_isr_init();
@@ -153,25 +153,24 @@ void handleSetTime(){
   if (server.hasArg("jam")) {
     setJam = server.arg("jam"); 
     Serial.println("setJam:"+String(setJam));
-      RtcDateTime now = Rtc.GetDateTime();
-      int jam   = setJam.substring(0, 2).toInt();
-      int menit = setJam.substring(3, 5).toInt();
-      int detik = setJam.substring(6, 8).toInt();
-      Rtc.SetDateTime(RtcDateTime(now.Year(), now.Month(), now.Day(), jam, menit, detik));
+    RtcDateTime now = Rtc.GetDateTime();
+    int jam   = setJam.substring(0, 2).toInt();
+    int menit = setJam.substring(3, 5).toInt();
+    int detik = setJam.substring(6, 8).toInt();
+    Rtc.SetDateTime(RtcDateTime(now.Year(), now.Month(), now.Day(), jam, menit, detik));
     saveRequired = true;
   } 
   if (server.hasArg("tanggal")) {
     setTanggal = server.arg("tanggal"); 
     Serial.println(String()+"setTanggal:"+setTanggal);
 
-      //Serial.println(String()+"setTanggal:"+setTanggal);
-      RtcDateTime now = Rtc.GetDateTime();
-      int day   = setTanggal.substring(0, 2).toInt();    // Ambil 2 karakter pertama (hari)
-      int month = setTanggal.substring(3, 5).toInt();  // Ambil karakter 4 dan 5 (bulan)
-      int year  = setTanggal.substring(6, 10).toInt();  // Ambil karakter 7 sampai 10 (tahun)
-      Rtc.SetDateTime(RtcDateTime(year, month, day, now.Hour(), now.Minute(), now.Second()));
-saveRequired = true;
-    
+    //Serial.println(String()+"setTanggal:"+setTanggal);
+    RtcDateTime now = Rtc.GetDateTime();
+    int day   = setTanggal.substring(0, 2).toInt();    // Ambil 2 karakter pertama (hari)
+    int month = setTanggal.substring(3, 5).toInt();  // Ambil karakter 4 dan 5 (bulan)
+    int year  = setTanggal.substring(6, 10).toInt();  // Ambil karakter 7 sampai 10 (tahun)
+    Rtc.SetDateTime(RtcDateTime(year, month, day, now.Hour(), now.Minute(), now.Second()));
+    saveRequired = true;  
   }
   if (server.hasArg("text")) {
     setText = server.arg("text"); 
@@ -179,62 +178,63 @@ saveRequired = true;
     setText.toCharArray(text,setText.length()+1);
     Serial.println(String()+"setText:"+setText);
     Serial.println(String()+"text   :"+text);
-    //saveStringToEEPROM(0, setText);
-    saveRequired = true;
+//    saveStringToEEPROM(25, setText);
+//    EEPROM.commit();
   }
   if (server.hasArg("brightness")) {
     //Serial.println(String()+"brightness:"+brightness);
     brightness = server.arg("brightness").toInt(); 
     Serial.println(String()+"brightness:"+brightness);
     Disp.setBrightness(brightness);
-    EEPROM.write(100, brightness);
-    EEPROM.commit();
+    //EEPROM.write(0, brightness);
+    //EEPROM.commit();
 
   }
   if (server.hasArg("speedDate")) {
     speedDate = server.arg("speedDate").toInt(); // Atur kecepatan text 1
     Serial.println(String()+"speedDate:"+speedDate);
-    EEPROM.write(200, speedDate);
-    EEPROM.commit();
+    //EEPROM.write(5, speedDate);
+    //EEPROM.commit();
 
   }
   if (server.hasArg("speedText")) {
     speedText = server.arg("speedText").toInt(); // Atur kecepatan text 2
     Serial.println(String()+"speedText:"+speedText);
-    EEPROM.write(300, speedText);
-    saveRequired = true;
+    //EEPROM.write(10, speedText);
+    //EEPROM.commit();
   }
   if (server.hasArg("newPassword")) {
     String newPassword = server.arg("newPassword");
     Serial.println(String()+"newPassword:"+newPassword);
     newPassword.toCharArray(password, newPassword.length() + 1); // Set password baru
     WiFi.softAP(ssid, password); // Restart AP dengan password baru
-    //saveStringToEEPROM(400, password); // Simpan password AP
-    saveRequired = true;
+//    saveStringToEEPROM(15, password); // Simpan password AP
+//    EEPROM.commit();
     server.send(200, "text/plain", "Password AP berhasil diubah, silakan sambungkan ulang!");
     delay(2000);
     ESP.restart(); // Restart ESP untuk menerapkan perubahan AP
-  } 
-//   // Simpan data ke EEPROM hanya jika ada perubahan
-//   if (saveRequired) {
-//     //saveToEEPROM();
-//     //EEPROM.commit();
-// } 
+  } //EEPROM.commit();
+    //EEPROM.end();
     server.send(200, "text/plain", "Pengaturan berhasil diupdate dan disimpan ke EEPROM!");
-  // } else {
-  //   server.send(200, "text/plain", "Tidak ada perubahan.");
-  // }
 }
 
 
 // Fungsi untuk menyimpan string ke EEPROM
-void saveStringToEEPROM(int startAddr, String data) {
-  char buff[100]; // Buffer untuk string yang akan dibaca
-  int size = data.length()+1;
-  data.toCharArray(buff, size);
-  Serial.println(buff);
-  EEPROM.put(startAddr,buff);
-  data="";
+//void saveStringToEEPROM(int startAddr, String data) {
+//  char buff[100]; // Buffer untuk string yang akan dibaca
+//  int size = data.length()+1;
+//  data.toCharArray(buff, size);
+//  Serial.println(buff);
+//  EEPROM.put(startAddr,buff);
+//  data="";
+//}
+// Fungsi untuk menyimpan string ke EEPROM
+void saveStringToEEPROM(int startAddr, const String &data) {
+  int len = data.length();
+  for (int i = 0; i < len; i++) {
+    EEPROM.write(startAddr + i, data[i]);
+  }
+  EEPROM.write(startAddr + len, '\0'); // Null terminator
 }
 
 // Fungsi untuk membaca string dari EEPROM
@@ -290,7 +290,8 @@ void setup() {
   Serial.begin(115200);
   pinMode(BUZZ, OUTPUT); 
   pinMode(LED, OUTPUT);
-  EEPROM.begin(512); // Inisialisasi EEPROM dengan ukuran yang ditentukan
+  
+  
  
    // Load data dari EEPROM
   //loadFromEEPROM();
@@ -431,4 +432,3 @@ int I2C_ClearBus() {
   pinMode(SCL, INPUT);
   return 0; // all ok
 }
-
