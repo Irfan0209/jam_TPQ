@@ -8,7 +8,7 @@ Program V1.0
 
 ==================================*/
 /*------------------------------------------------------------------------------------
-http://<ESP_IP_ADDRESS>/setTime?jam=12:00:00&tanggal=01-01-2024&text=Hello&speedDate=60&speedText=70&brightness=20&newPassword=newpassword123&mode=1
+http://192.168.4.1/setTime?jam=12:00:00&tanggal=01-01-2024&text=Hello&speedDate=60&speedText=70&brightness=20&newPassword=newpassword123&mode=1
 -------------------------------------------------------------------------------------*/
 #include <ESP8266WiFi.h>
 #include <ESP8266WebServer.h>
@@ -18,6 +18,9 @@ http://<ESP_IP_ADDRESS>/setTime?jam=12:00:00&tanggal=01-01-2024&text=Hello&speed
 #include <Wire.h>
 #include <RtcDS3231.h>
 #include <ESP_EEPROM.h>
+
+#include "PrayerTimes.h"
+
 
 #include <fonts/SystemFont5x7.h>
 #include <fonts/Font4x6.h>
@@ -37,7 +40,7 @@ http://<ESP_IP_ADDRESS>/setTime?jam=12:00:00&tanggal=01-01-2024&text=Hello&speed
 //////////hijriyah
 #define epochHijriah          1948439.5f //math.harvard.edu
 #define tambahKurangHijriah   0
-#define chijir                0
+//#define chijir                0
 
 // Ukuran EEPROM (pastikan cukup untuk semua data)
 #define EEPROM_SIZE 200
@@ -47,6 +50,7 @@ RtcDS3231<TwoWire> Rtc(Wire);
 HJS589  Disp(DISPLAYS_WIDE, DISPLAYS_HIGH);  // Jumlah Panel P10 yang digunakan (KOLOM,BARIS)
 RtcDateTime now;
 ESP8266WebServer server(80);
+double times[sizeof(TimeName)/sizeof(char*)];
 
 const char *pasar[]     ={"WAGE", "KLIWON", "LEGI", "PAHING", "PON"}; 
 int maxday[]            = {31, 28, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31};
@@ -60,6 +64,16 @@ char namaBulanHijriah[][14] = {"Muharram", "Safar", "Rabiul awal",
 
 int         DWidth  = Disp.width();
 int         DHeight = Disp.height();
+
+// Durasi waktu iqomah
+struct Config {
+  int chijir;
+  int durasiadzan;
+  int ihti; // Koreksi Waktu Menit Jadwal Sholat
+  float latitude;
+  float longitude;
+  int zonawaktu;
+};
 
 struct TanggalDanWaktu
 {
@@ -98,6 +112,7 @@ TanggalDanWaktu tanggalMasehi;
 Tanggal tanggalHijriah;
 TanggalJawa tanggalJawa;
 JamDanMenit waktuMagrib;
+Config config;
 
 // Pengaturan hotspot WiFi dari ESP8266
  char ssid[20]     = "JAM_PANEL";
@@ -113,6 +128,15 @@ int speedDate     = 70; // Kecepatan default date
 int speedText     = 60; // Kecepatan default text 
 byte tampilan     = 1;
 byte mode         = 1;
+
+enum Show{
+  ANIM_ZONK,
+  ANIM_JAM,
+  ANIM_DATE,
+  ANIM_SHOLAT
+};
+
+Show show = ANIM_JAM;
 
 //----------------------------------------------------------------------
 // HJS589 P10 FUNGSI TAMBAHAN UNTUK NODEMCU ESP8266
@@ -204,8 +228,9 @@ void handleSetTime(){
     mode = server.arg("mode").toInt(); // Atur mode
     Serial.println(String()+"mode:"+mode);
     Disp.clear();
-    if( mode == 1 ){ tampilan=1; }
-    else           { tampilan=0; }
+    (mode==1)? show = ANIM_JAM:show = ANIM_ZONK;
+    // if( mode == 1 ){ tampilan=1; }
+    // else           { tampilan=0; }
     EEPROM.put(12, mode);
   }
   if (server.hasArg("newPassword")) {
@@ -304,24 +329,28 @@ void setup() {
 
   Disp_init(); //Inisialisasi display
   AP_init();   //Inisialisasi Access Pointt
- 
+ JadwalSholat();
 }
+
 
 void loop() {
 
   server.handleClient(); // Menangani permintaan dari MIT App Inventor
   
   islam();
-  
-  runningInfo(); 
-  switch(tampilan){
-    case 1 :
-     runAnimasiJam();
-    break;
-    case 2 :
-     runAnimasiDate();
-    break;
-  };
+  runAnimasiSholat();
+  // runningInfo(); 
+  // switch(show){
+  //   case ANIM_ZONK :
+      
+  //   break;
+  //   case ANIM_JAM :
+  //    runAnimasiJam();
+  //   break;
+  //   case ANIM_DATE :
+  //    runAnimasiDate();
+  //   break;
+  // };
 }
 
 
@@ -329,20 +358,54 @@ void loop() {
 
 void Buzzer(uint8_t state)
   {
-    if(state == 0 ) //dapat dikasih kondisi jika diwaktu tertentu buzzer tidak aktif
-      {digitalWrite(BUZZ,LOW);}
-    else if(state == 1)
-      {digitalWrite(BUZZ,HIGH);}
-    else if(state == 2)
-      { for(int i = 0; i < 5; i++){ digitalWrite(BUZZ,HIGH); delay(80); digitalWrite(BUZZ,LOW); delay(80); } }
+    switch(state){
+      case 0 :
+        digitalWrite(BUZZ,LOW);
+      break;
+      case 1 :
+        digitalWrite(BUZZ,HIGH);
+      break;
+      case 2 :
+        for(int i = 0; i < 5; i++){ digitalWrite(BUZZ,HIGH); delay(80); digitalWrite(BUZZ,LOW); delay(80); }
+      break;
+    };
   }
 
-void fType(int x)
+void fType(uint8_t x)
   {
-    if(      x==0 ){  Disp.setFont(Font0); }
-    else if( x==1 ){  Disp.setFont(Font1); }
-    else if( x==2 ){  Disp.setFont(Font2); }
+    switch(x){
+      case 0 :
+        Disp.setFont(Font0);
+      break;
+      case 1 :
+        Disp.setFont(Font1);
+      break;
+      case 2 :
+        Disp.setFont(Font2);
+      break;
+    };
   }
+
+// PARAMETER PENGHITUNGAN JADWAL SHOLAT
+
+void JadwalSholat() {
+  
+  RtcDateTime now = Rtc.GetDateTime();
+
+  int tahun = now.Year();
+  int bulan = now.Month();
+  int tanggal = now.Day();
+
+
+  set_calc_method(Karachi);
+  set_asr_method(Shafii);
+  set_high_lats_adjust_method(AngleBased);
+  set_fajr_angle(20);
+  set_isha_angle(18);
+
+  get_prayer_times(tahun, bulan, tanggal, config.latitude, config.longitude, config.zonawaktu, times);
+
+}
 
  //----------------------------------------------------------------------
 // I2C_ClearBus menghindari gagal baca RTC (nilai 00 atau 165)

@@ -82,7 +82,7 @@ void masehiKeHijriah(TanggalDanWaktu masehi, JamDanMenit
                       + 1);
   hijriah.tanggal = (julianDate -
                      konversiTanggalHijriahKeJulianDate(hijriah.tahun, hijriah.bulan,
-                         1)) + 1+chijir;
+                         1)) + 1+config.chijir;
 
   long julianLong = (long)julianDate;
   jawa.pasaran = ((julianLong + 1) % 5); //0 = legi
