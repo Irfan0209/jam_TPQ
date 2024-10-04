@@ -198,6 +198,7 @@ void handleSetTime(){
     int month = setTanggal.substring(3, 5).toInt();  // Ambil karakter 4 dan 5 (bulan)
     int year  = setTanggal.substring(6, 10).toInt();  // Ambil karakter 7 sampai 10 (tahun)
     Rtc.SetDateTime(RtcDateTime(year, month, day, now.Hour(), now.Minute(), now.Second()));
+    //JadwalSholat();
   }
   if (server.hasArg("text")) {
     setText = server.arg("text"); 
@@ -245,6 +246,7 @@ void handleSetTime(){
    // write the data to EEPROM
   boolean ok1 = EEPROM.commit();
   Serial.println((ok1) ? "First commit OK" : "Commit failed");
+  JadwalSholat();
   delay(100);
   server.send(200, "text/plain", "Pengaturan berhasil diupdate dan disimpan ke EEPROM!");
 }
@@ -339,17 +341,25 @@ void loop() {
   
   islam();
   runAnimasiSholat();
-  // runningInfo(); 
+  //runningInfo(); 
   // switch(show){
   //   case ANIM_ZONK :
-      
+  //     runningInfo(); 
   //   break;
   //   case ANIM_JAM :
   //    runAnimasiJam();
+  //    runningInfo(); 
   //   break;
   //   case ANIM_DATE :
   //    runAnimasiDate();
+  //    runningInfo(); 
   //   break;
+  //   case ANIM_SHOLAT :
+  //    runAnimasiSholat();
+  //   break;
+  //   // case ANIM_TEXT :
+  //   //  runningInfo(); 
+  //   // break;
   // };
 }
 

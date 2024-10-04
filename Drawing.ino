@@ -76,7 +76,7 @@ void runAnimasiDate(){
         }
         else {  
           x=0; 
-          show = ANIM_JAM;
+          show = ANIM_SHOLAT;
           return;
           
         }
