@@ -340,27 +340,27 @@ void loop() {
   server.handleClient(); // Menangani permintaan dari MIT App Inventor
   
   islam();
-  runAnimasiSholat();
+  //runAnimasiSholat();
   //runningInfo(); 
-  // switch(show){
-  //   case ANIM_ZONK :
-  //     runningInfo(); 
-  //   break;
-  //   case ANIM_JAM :
-  //    runAnimasiJam();
-  //    runningInfo(); 
-  //   break;
-  //   case ANIM_DATE :
-  //    runAnimasiDate();
-  //    runningInfo(); 
-  //   break;
-  //   case ANIM_SHOLAT :
-  //    runAnimasiSholat();
-  //   break;
-  //   // case ANIM_TEXT :
-  //   //  runningInfo(); 
-  //   // break;
-  // };
+  switch(show){
+    case ANIM_ZONK :
+      runningInfo(); 
+    break;
+    case ANIM_JAM :
+     runAnimasiJam();
+     runningInfo(); 
+    break;
+    case ANIM_DATE :
+     runAnimasiDate();
+     runningInfo(); 
+    break;
+    case ANIM_SHOLAT :
+     runAnimasiSholat();
+    break;
+    // case ANIM_TEXT :
+    //  runningInfo(); 
+    // break;
+  };
 }
 
 

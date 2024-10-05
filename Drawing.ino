@@ -30,7 +30,7 @@ void runningInfo(){
 void runAnimasiJam(){
 
   RtcDateTime now = Rtc.GetDateTime();
-  static int    y=-20;
+  static int    y=0;
   static bool    s; // 0=in, 1=out              
   static unsigned long   lsRn;
   unsigned long          Tmr = millis();
@@ -76,6 +76,7 @@ void runAnimasiDate(){
         }
         else {  
           x=0; 
+          Disp.clear();
           show = ANIM_SHOLAT;
           return;
           
