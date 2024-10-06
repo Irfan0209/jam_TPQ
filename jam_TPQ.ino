@@ -9,7 +9,22 @@ Program V1.0
 ==================================*/
 /*------------------------------------------------------------------------------------
 http://192.168.4.1/setTime?jam=12:00:00&tanggal=01-01-2024&text=Hello&speedDate=60&speedText=70&brightness=20&newPassword=newpassword123&mode=1
+
+noEEPROM    value
+0           brightness
+4           speed date
+8           speed text
+12          mode
+16          chijir
+20          durasi adzan
+24          ihti
+28          latitude
+32          longitude
+38          zona waktu
+42          password
+52          text
 -------------------------------------------------------------------------------------*/
+
 #include <ESP8266WiFi.h>
 #include <ESP8266WebServer.h>
 
@@ -56,8 +71,8 @@ const char *pasar[]     ={"WAGE", "KLIWON", "LEGI", "PAHING", "PON"};
 int maxday[]            = {31, 28, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31};
 const char *Hari[] =    {"MINGGU","SENIN","SELASA","RABU","KAMIS","JUM'AT","SABTU"};
 const char *sholatt[]   = {"SUBUH","TERBIT","DZUHUR","ASHAR","TRBNM","MAGRIB","ISYA"};
-char namaBulanHijriah[][14] = {"Muharram", "Safar", "Rabiul awal",
-                               "RabiulAkhir", "JumadilAwal", "JumadilAkir", "Rajab",
+const char *namaBulanHijriah[] = {"Muharram", "Safar", "Rabiul awal",
+                               "Rabiul Akhir", "Jumadil Awal", "Jumadil Akhir", "Rajab",
                                "Sya'ban", "Ramadhan", "Syawal",
                                "Dzulkaidah", "Dzulhijjah"
                               };
@@ -70,10 +85,11 @@ struct Config {
   int chijir;
   int durasiadzan;
   int ihti; // Koreksi Waktu Menit Jadwal Sholat
-  float latitude;
-  float longitude;
-  int zonawaktu;
+  float latitude  = -7.42;
+  float longitude = 111.008;
+  int zonawaktu = 7;
 };
+
 
 struct TanggalDanWaktu
 {
@@ -128,16 +144,20 @@ int speedDate     = 70; // Kecepatan default date
 int speedText     = 60; // Kecepatan default text 
 byte tampilan     = 1;
 byte mode         = 1;
+bool adzan=0;
 
 enum Show{
   ANIM_ZONK,
   ANIM_JAM,
   ANIM_DATE,
-  ANIM_SHOLAT
+  ANIM_SHOLAT,
+  ANIM_ADZAN
 };
 
 Show show = ANIM_JAM;
-
+byte          sholatNow  = -1;
+byte         reset_x    = 0; 
+byte         list       = 0; 
 //----------------------------------------------------------------------
 // HJS589 P10 FUNGSI TAMBAHAN UNTUK NODEMCU ESP8266
 
@@ -178,6 +198,7 @@ void AP_init(){
 // Fungsi untuk mengatur jam, tanggal, running text, dan kecerahan
 void handleSetTime(){
   Serial.println("hansle run");
+  static int flag = 0;
   Buzzer(1);
   if (server.hasArg("jam")) {
     setJam = server.arg("jam"); 
@@ -188,6 +209,7 @@ void handleSetTime(){
     int menit = setJam.substring(3, 5).toInt();
     int detik = setJam.substring(6, 8).toInt();
     Rtc.SetDateTime(RtcDateTime(now.Year(), now.Month(), now.Day(), jam, menit, detik));
+    server.send(200, "text/plain", "Settingan jam berhasil diupdate");
   } 
   if (server.hasArg("tanggal")) {
     setTanggal = server.arg("tanggal"); 
@@ -198,7 +220,9 @@ void handleSetTime(){
     int month = setTanggal.substring(3, 5).toInt();  // Ambil karakter 4 dan 5 (bulan)
     int year  = setTanggal.substring(6, 10).toInt();  // Ambil karakter 7 sampai 10 (tahun)
     Rtc.SetDateTime(RtcDateTime(year, month, day, now.Hour(), now.Minute(), now.Second()));
-    //JadwalSholat();
+    server.send(200, "text/plain", "Settingan kalender berhasil diupdate");
+    flag=1;
+    //Serial.println("flag date"+String(flag));
   }
   if (server.hasArg("text")) {
     setText = server.arg("text"); 
@@ -206,7 +230,8 @@ void handleSetTime(){
     setText.toCharArray(text,setText.length()+1);
     Serial.println(String()+"setText:"+setText);
     Serial.println(String()+"text   :"+text);
-    saveStringToEEPROM(25, setText);
+    saveStringToEEPROM(62, setText);
+    server.send(200, "text/plain", "Settingan nama berhasil diupdate");
   }
   if (server.hasArg("brightness")) {
     brightness = server.arg("brightness").toInt(); 
@@ -214,41 +239,112 @@ void handleSetTime(){
     Serial.println(String()+"brightness:"+brightness);
     Disp.setBrightness(brightness);
     EEPROM.put(0, brightness);
+    server.send(200, "text/plain", "Kecerahan berhasil diupdate");
   }
   if (server.hasArg("speedDate")) {
     speedDate = server.arg("speedDate").toInt(); // Atur kecepatan date
     Serial.println(String()+"speedDate:"+speedDate);
     EEPROM.put(4, speedDate);
+    server.send(200, "text/plain", "Kecepatan kalender berhasil diupdate");
   }
   if (server.hasArg("speedText")) {
     speedText = server.arg("speedText").toInt(); // Atur kecepatan text
     Serial.println(String()+"speedText:"+speedText);
     EEPROM.put(8, speedText);
+    server.send(200, "text/plain", "Kecepatan nama berhasil diupdate");
   }
   if (server.hasArg("mode")) {
     mode = server.arg("mode").toInt(); // Atur mode
     Serial.println(String()+"mode:"+mode);
     Disp.clear();
     (mode==1)? show = ANIM_JAM:show = ANIM_ZONK;
+    reset_x = 1; //reset tulisan dari awal
+    list    = 0; //reset urutan jadwal sholat
     // if( mode == 1 ){ tampilan=1; }
     // else           { tampilan=0; }
     EEPROM.put(12, mode);
+    server.send(200, "text/plain", "Mode berhasil diupdate");
   }
+  /*
+  
+  */
+  ///////////////////////
+  if (server.hasArg("chijir")) {
+     config.chijir = server.arg("chijir").toInt(); // Atur kecepatan text
+    Serial.println(String()+"chijir:"+ config.chijir);
+    EEPROM.put(16, config.chijir);
+    server.send(200, "text/plain", "Selisih tanggal hijriah diupdate");
+  }
+  if (server.hasArg("durasiadzan")) {
+    config.durasiadzan = server.arg("durasiadzan").toInt(); // Atur kecepatan text
+    Serial.println(String()+"durasiadzan:"+config.durasiadzan);
+    EEPROM.put(20, config.durasiadzan);
+    server.send(200, "text/plain", "Durasi adzan diupdate");
+  }
+  if (server.hasArg("ihti")) {
+    config.ihti = server.arg("ihti").toInt(); // Atur kecepatan text
+    Serial.println(String()+"ihti:"+config.ihti);
+    EEPROM.put(24, config.ihti);
+    server.send(200, "text/plain", "Selisih jadwal sholat diupdate");
+  }
+  if (server.hasArg("latitude")) {
+    config.latitude = server.arg("latitude").toFloat(); // Atur kecepatan text
+    Serial.println(String()+"latitude:"+config.latitude);
+    tulisFloatEEPROM(28, config.latitude);
+    server.send(200, "text/plain", "Nilai latitude diupdate");
+    flag=1;
+  }
+  if (server.hasArg("longitude")) {
+    config.longitude = server.arg("longitude").toFloat(); // Atur kecepatan text
+    Serial.println(String()+"longitude:"+config.longitude);
+    tulisFloatEEPROM(38, config.longitude);
+    server.send(200, "text/plain", "Nilai longitude diupdate");
+    flag=1;
+  }
+  if (server.hasArg("zonawaktu")) {
+    config.zonawaktu = server.arg("zonawaktu").toInt(); // Atur kecepatan text
+    Serial.println(String()+"zonawaktu:"+config.zonawaktu);
+    EEPROM.put(48, config.zonawaktu);
+    server.send(200, "text/plain", "Nilai zona waktu diupdate");
+    flag=1;
+  }
+/////////////////
   if (server.hasArg("newPassword")) {
     String newPassword = server.arg("newPassword");
     if(newPassword.length()==8){
       Serial.println(String()+"newPassword:"+newPassword);
       newPassword.toCharArray(password, newPassword.length() + 1); // Set password baru
-      saveStringToEEPROM(13, password); // Simpan password AP
-      server.send(200, "text/plain", "Password AP berhasil diubah, silakan sambungkan ulang!");
+      saveStringToEEPROM(52, password); // Simpan password AP
+      server.send(200, "text/plain", "Password WiFi diupdate");
     }else{ Buzzer(2); Serial.println("panjang password melebihi 8 karakter"); }
   } 
    // write the data to EEPROM
   boolean ok1 = EEPROM.commit();
   Serial.println((ok1) ? "First commit OK" : "Commit failed");
-  JadwalSholat();
+  if(flag){JadwalSholat(); flag=0;}
   delay(100);
-  server.send(200, "text/plain", "Pengaturan berhasil diupdate dan disimpan ke EEPROM!");
+  Buzzer(0);
+  
+  //server.send(200, "text/plain", "Pengaturan berhasil diupdate dan disimpan ke EEPROM!");
+}
+
+// Fungsi untuk menyimpan nilai float ke EEPROM di alamat yang ditentukan
+void tulisFloatEEPROM(int address, float nilai) {
+  byte* p = (byte*)(void*)&nilai;
+  for (int i = 0; i < sizeof(float); i++) {
+    EEPROM.write(address + i, *(p + i));
+  }
+  EEPROM.commit();  // Simpan perubahan ke EEPROM
+}
+
+// Fungsi untuk membaca nilai float dari EEPROM di alamat yang ditentukan
+float bacaFloatEEPROM(int address) {
+  float nilai = 0.0;
+  byte* p = (byte*)(void*)&nilai;
+  for (int i = 0; i < sizeof(float); i++) {
+    *(p + i) = EEPROM.read(address + i);
+  }
+  return nilai;
 }
 
 // Fungsi untuk menyimpan string ke EEPROM
@@ -278,20 +374,33 @@ String readStringFromEEPROM(int startAddr) {
 // Membaca semua data dari EEPROM
 void loadFromEEPROM() {
 
-  setText   = readStringFromEEPROM(25);
+  setText   = readStringFromEEPROM(62);
   brightness= EEPROM.read(0);
   speedDate = EEPROM.read(4);
   speedText = EEPROM.read(8);
   mode      = EEPROM.read(12);
-  String loadedPassword = readStringFromEEPROM(13); // Baca password dari EEPROM
+  config.chijir      = EEPROM.read(16);
+  config.durasiadzan = EEPROM.read(20);
+  config.ihti        = EEPROM.read(24);
+  config.latitude    = bacaFloatEEPROM(28);
+  config.longitude   = bacaFloatEEPROM(38);
+  config.zonawaktu   = EEPROM.read(48);
+  String loadedPassword = readStringFromEEPROM(52); // Baca password dari EEPROM
   loadedPassword.toCharArray(password, loadedPassword.length() + 1); // Set password AP
   setText.toCharArray(text,setText.length()+1);
   
+  Serial.println("");
   Serial.println(String()+"setText       :"+setText);
   Serial.println(String()+"brightness    :"+brightness);
   Serial.println(String()+"speedDate     :"+speedDate);
   Serial.println(String()+"speedText     :"+speedText);
   Serial.println(String()+"mode          :"+mode);
+  Serial.println(String()+"zona waktu    :"+config.zonawaktu);
+  Serial.println(String()+"chijir        :"+config.chijir);
+  Serial.println(String()+"durasi adzan  :"+config.durasiadzan);
+  Serial.println(String()+"ihti          :"+config.ihti);
+  Serial.println(String()+"latitude      :"+config.latitude);
+  Serial.println(String()+"longitude     :"+config.longitude);
   Serial.println(String()+"loadedPassword:"+loadedPassword);
 }
 
@@ -338,10 +447,9 @@ void setup() {
 void loop() {
 
   server.handleClient(); // Menangani permintaan dari MIT App Inventor
-  
+  check();
   islam();
-  //runAnimasiSholat();
-  //runningInfo(); 
+   
   switch(show){
     case ANIM_ZONK :
       runningInfo(); 
@@ -356,6 +464,9 @@ void loop() {
     break;
     case ANIM_SHOLAT :
      runAnimasiSholat();
+    break;
+    case ANIM_ADZAN :
+     drawAzzan();
     break;
     // case ANIM_TEXT :
     //  runningInfo(); 
@@ -406,7 +517,7 @@ void JadwalSholat() {
   int bulan = now.Month();
   int tanggal = now.Day();
 
-
+  Serial.println("calcualat run");
   set_calc_method(Karachi);
   set_asr_method(Shafii);
   set_high_lats_adjust_method(AngleBased);
