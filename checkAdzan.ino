@@ -21,15 +21,17 @@ void check(){
 
     
     if(counter!=1 and counter!=4 ){
-      if(jam == hours && menit == minutes && detik <= 1){
+      if(jam == hours && menit == minutes && detik < 4){
       Disp.clear();
       sholatNow = counter;
       adzan = 1;
+      reset_x = 1;
       show=ANIM_ADZAN;
-      //list    = -1;
-      reset_x = 0;
+      list    = 0;
+      
       }
     }
+    //if(counter==5)
     counter++;
     if(counter==7){counter=0;}
     
@@ -86,11 +88,12 @@ void drawAzzan()
         ct++;
         Serial.println("ct:" + String(ct));
       }
-    if ( ct >= 40)
+    if ( ct >= config.durasiadzan)
       {
         sholatNow=-1;
+        flag1=1;
         adzan = 0;
-        show = ANIM_JAM;
+        (mode==1)?show = ANIM_JAM : show = ANIM_ZONK;
         Disp.clear();
         ct = 0;
         Buzzer(0);
@@ -218,12 +221,16 @@ void checkAdzan(){
 }
 
 void runAnimasiSholat(){
-  if(adzan) {return;}
+ 
+  if(adzan) {Serial.println("run back"); return;}
   RtcDateTime now = Rtc.GetDateTime();
   static int        y=0;
   static int        x=0;
   static byte       s=0; // 0=in, 1=out   
   static byte       s1=0;
+  static byte lastList;
+  if(list != lastList){s=0; s1=0; x=0; y=0;lastList = list; }
+  //if (reset_x !=0) {list=0; s=0; s1=0; Serial.println("run reset sholat: list s  s1"+ String(list)+String(s)+String(s1)); reset_x = 0;}
   static uint32_t   lsRn;
   uint32_t          Tmr = millis(); 
   
@@ -234,6 +241,8 @@ void runAnimasiSholat(){
   int tanggal = now.Day();
   char buff_jam[10];
 
+  Serial.println(String()+"list          :"+ list);
+  Serial.println(String()+"lastList      :"+ lastList);
   // set_calc_method(Karachi);
   // set_asr_method(Shafii);
   // set_high_lats_adjust_method(AngleBased);
@@ -258,7 +267,7 @@ void runAnimasiSholat(){
      
     list++; 
     if(list==4){list=5;} 
-    if(list==7){list=0; Disp.clear(); show=ANIM_JAM;}//else{list=list;}
+    if(list==7){list=0; Disp.clear(); show=ANIM_JAM; flag1=1;}//else{list=list;}
   }
 
   //Serial.println("list:"+ String(list));

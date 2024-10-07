@@ -156,7 +156,7 @@ enum Show{
 
 Show show = ANIM_JAM;
 byte          sholatNow  = -1;
-byte         reset_x    = 0; 
+ byte         reset_x    = 0; 
 byte         list       = 0; 
 //----------------------------------------------------------------------
 // HJS589 P10 FUNGSI TAMBAHAN UNTUK NODEMCU ESP8266
@@ -443,7 +443,7 @@ void setup() {
  JadwalSholat();
 }
 
-
+bool flag1=1;
 void loop() {
 
   server.handleClient(); // Menangani permintaan dari MIT App Inventor
@@ -452,15 +452,15 @@ void loop() {
    
   switch(show){
     case ANIM_ZONK :
-      runningInfo(); 
+      runningInfoMode2(); 
     break;
     case ANIM_JAM :
      runAnimasiJam();
-     runningInfo(); 
+     runningInfoMode1(); 
     break;
     case ANIM_DATE :
      runAnimasiDate();
-     runningInfo(); 
+     runningInfoMode1(); 
     break;
     case ANIM_SHOLAT :
      runAnimasiSholat();
@@ -472,6 +472,8 @@ void loop() {
     //  runningInfo(); 
     // break;
   };
+  // Serial.println(String()+"adzan          :"+adzan);
+  // Serial.println(String()+"reset_x        :"+reset_x);
 }
 
 

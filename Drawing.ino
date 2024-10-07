@@ -1,7 +1,8 @@
-void runningInfo(){
-  static unsigned int x; 
-  if (reset_x !=0) { x=0; reset_x = 0;}
-  if(adzan) {return;}
+void runningInfoMode1(){
+  static unsigned int x;
+  if (reset_x !=0) {x=0;reset_x = 0;}
+  if(adzan==1 || flag1==0) {return;}
+  
   int Speed = speedText;
   
   static unsigned long lsRn;
@@ -15,9 +16,11 @@ void runningInfo(){
 
   if((Tmr-lsRn)> Speed)
     { lsRn = Tmr;
+      fType(0);
       if (x < fullScroll) { 
         ++x; 
         //Serial.println(String()+"x:" + x); 
+        Disp.drawText(Disp.width() - x, 9, text);
       }
       else {  
         x=0; 
@@ -26,8 +29,44 @@ void runningInfo(){
 
         //  if(      mode == 1 ){fType(0);  Disp.drawText(Disp.width() - x, 9, text); }
         //  else if( mode == 2 ){fType(2);  Disp.drawText(Disp.width() - x, 0, text); }
-        (mode==1)? fType(0):fType(2);
-        Disp.drawText(Disp.width() - x, (mode==1)? 9 : 0 , text);
+        
+        
+    }
+}
+
+void runningInfoMode2(){
+  static unsigned int x;
+  if (reset_x !=0) {x=0;reset_x = 0;}
+  if(adzan) {return;}
+  
+  int Speed = speedText;
+  
+  static unsigned long lsRn;
+  unsigned long Tmr = millis();
+  
+  //const int sizeChar = setText.length()+1;
+  
+ // msg = msg1;
+  int fullScroll = Disp.textWidth(text) + Disp.width() + 10;
+  
+
+  if((Tmr-lsRn)> Speed)
+    { lsRn = Tmr;
+      fType(2);
+      if (x < fullScroll) { 
+        ++x; 
+        //Serial.println(String()+"x:" + x); 
+        Disp.drawText(Disp.width() - x, 0 , text);
+      }
+      else {  
+        x=0; 
+        return;
+      }
+
+        //  if(      mode == 1 ){fType(0);  Disp.drawText(Disp.width() - x, 9, text); }
+        //  else if( mode == 2 ){fType(2);  Disp.drawText(Disp.width() - x, 0, text); }
+        
+        
     }
 }
 
@@ -62,9 +101,11 @@ void runAnimasiDate(){
   static unsigned int x;
   if (reset_x !=0) { x=0;reset_x = 0;}
   if(adzan) {return;}
+  
   RtcDateTime now = Rtc.GetDateTime();
   static unsigned long   lsRn;
   unsigned long          Tmr = millis();
+  // bool flag=1;
    
   int Speed = speedDate;
   byte daynow   = now.DayOfWeek();    // load day Number
@@ -80,17 +121,21 @@ void runAnimasiDate(){
         if (x < fullScroll) { 
           ++x; 
           //Serial.println(String()+"x:" + x); 
+        fType(0); 
+        Disp.drawText(Disp.width() - x,0, buff_date);
         }
         else {  
+          flag1=0;
           Disp.clear();
+          //delay(50);
           x=0; 
           reset_x=1;
           show = ANIM_SHOLAT;
           return;
         }
-        fType(0); 
-        Disp.drawText(Disp.width() - x,0, buff_date);
+        
       }
+      //if(flag){}
       // if ((Tmr-lsRn)>500 and x == 0){
       //   show = ANIM_SHOLAT;
       // }
