@@ -1,8 +1,11 @@
 //////hijiriyah voidku/////////////////////////////////////////////////
 void islam() {
   //
-  waktuMagrib = {17, 24};
+  waktuMagrib = {trigJam, trigMenit};
  
+  // Serial.println("trigJam  :" + String(trigJam));
+  // Serial.println("trigMenit:" + String(trigMenit));
+
   RtcDateTime now = Rtc.GetDateTime();
   tanggalMasehi.tanggal = now.Day();
   tanggalMasehi.bulan = now.Month();

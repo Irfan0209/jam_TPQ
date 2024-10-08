@@ -1,16 +1,13 @@
 void runningInfoMode1(){
   static unsigned int x;
   if (reset_x !=0) {x=0;reset_x = 0;}
-  if(adzan==1 || flag1==0) {return;}
+  if(adzan==1 || flag1==0) { return; }
   
   int Speed = speedText;
   
   static unsigned long lsRn;
   unsigned long Tmr = millis();
   
-  //const int sizeChar = setText.length()+1;
-  
- // msg = msg1;
   int fullScroll = Disp.textWidth(text) + Disp.width() + 10;
   
 
@@ -26,27 +23,19 @@ void runningInfoMode1(){
         x=0; 
         return;
       }
-
-        //  if(      mode == 1 ){fType(0);  Disp.drawText(Disp.width() - x, 9, text); }
-        //  else if( mode == 2 ){fType(2);  Disp.drawText(Disp.width() - x, 0, text); }
-        
-        
     }
 }
 
 void runningInfoMode2(){
   static unsigned int x;
   if (reset_x !=0) {x=0;reset_x = 0;}
-  if(adzan) {return;}
+  if(adzan) return;
   
   int Speed = speedText;
   
   static unsigned long lsRn;
   unsigned long Tmr = millis();
   
-  //const int sizeChar = setText.length()+1;
-  
- // msg = msg1;
   int fullScroll = Disp.textWidth(text) + Disp.width() + 10;
   
 
@@ -62,16 +51,11 @@ void runningInfoMode2(){
         x=0; 
         return;
       }
-
-        //  if(      mode == 1 ){fType(0);  Disp.drawText(Disp.width() - x, 9, text); }
-        //  else if( mode == 2 ){fType(2);  Disp.drawText(Disp.width() - x, 0, text); }
-        
-        
     }
 }
 
 void runAnimasiJam(){
-  if(adzan) {return;}
+  if(adzan) return;
   RtcDateTime now = Rtc.GetDateTime();
   static int    y=0;
   static bool    s; // 0=in, 1=out              
@@ -93,15 +77,25 @@ void runAnimasiJam(){
    if (y == 0 and s==1) { s=0; show = ANIM_DATE;}
   
   fType(0); 
-  Disp.drawText(2,y-9, buff_jam); 
+  dwCtr(0,y-9, buff_jam); 
 
 }
 
 void runAnimasiDate(){
   static unsigned int x;
   if (reset_x !=0) { x=0;reset_x = 0;}
-  if(adzan) {return;}
-  
+  if(adzan) return;
+  const char *pasar[]     ={"WAGE", "KLIWON", "LEGI", "PAHING", "PON"}; 
+  const char *Hari[]      ={"MINGGU","SENIN","SELASA","RABU","KAMIS","JUM'AT","SABTU"};
+  const char *sholatt[]   ={"SUBUH","TERBIT","DZUHUR","ASHAR","TRBNM","MAGRIB","ISYA"};
+  const char *namaBulanHijriah[] = {
+    "Muharram", "Safar", "Rabiul awal",
+    "Rabiul Akhir", "Jumadil Awal", 
+    "Jumadil Akhir", "Rajab",
+    "Sya'ban", "Ramadhan", "Syawal",
+    "Dzulkaidah", "Dzulhijjah"
+  };
+
   RtcDateTime now = Rtc.GetDateTime();
   static unsigned long   lsRn;
   unsigned long          Tmr = millis();
@@ -117,34 +111,29 @@ void runAnimasiDate(){
   int fullScroll = Disp.textWidth(buff_date) + Disp.width() ;
   //Serial.println("scroll:" + String(fullScroll));
     if((Tmr-lsRn)> Speed)
-      { lsRn = Tmr;
-        if (x < fullScroll) { 
-          ++x; 
-          //Serial.println(String()+"x:" + x); 
+    { 
+      lsRn = Tmr;
+      if (x < fullScroll) { 
+        ++x; 
+        //Serial.println(String()+"x:" + x); 
         fType(0); 
         Disp.drawText(Disp.width() - x,0, buff_date);
-        }
-        else {  
-          flag1=0;
-          Disp.clear();
-          //delay(50);
-          x=0; 
-          reset_x=1;
-          show = ANIM_SHOLAT;
-          return;
-        }
-        
       }
-      //if(flag){}
-      // if ((Tmr-lsRn)>500 and x == 0){
-      //   show = ANIM_SHOLAT;
-      // }
-    //Serial.println(String()+"x:" + x);
+      else {  
+        flag1=0;
+        Disp.clear();
+        x=0; 
+        reset_x=1;
+        show = ANIM_SHOLAT;
+        return;
+      }
+    }
 }
 
-
-
-
-void animasiSholat(){
-  
+void dwCtr(int x, int y, String Msg){
+   int   tw = Disp.textWidth(Msg);
+    int   th = 16;
+    int   c = int((DWidth-x-tw)/2);
+    //Disp.drawFilledRect(x+c-1,y,x+tw+c,y+th,0);
+    Disp.drawText(x+c,y,Msg);
 }
