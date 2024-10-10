@@ -89,12 +89,13 @@ void runAnimasiDate(){
   const char *Hari[]      ={"MINGGU","SENIN","SELASA","RABU","KAMIS","JUM'AT","SABTU"};
   const char *sholatt[]   ={"SUBUH","TERBIT","DZUHUR","ASHAR","TRBNM","MAGRIB","ISYA"};
   const char *namaBulanHijriah[] = {
-    "Muharram", "Safar", "Rabiul awal",
-    "Rabiul Akhir", "Jumadil Awal", 
-    "Jumadil Akhir", "Rajab",
-    "Sya'ban", "Ramadhan", "Syawal",
-    "Dzulkaidah", "Dzulhijjah"
+    "MUHARRAM", "SHAFAR", "RABIUL AWAL",
+    "RABIUL AKHIR", "JUMADIL AWAL", 
+    "JUMADIL AKHIR", "RAJAB",
+    "SYA'BAN", "RAMADHAN", "SYAWAL",
+    "DZULQA'DAH", "DZULHIJAH"
   };
+//"MUHARRAM","SHAFAR","RAB.AWAL","RAB.AKHIR","JUM.AWAL","JUM.AKHIR","RAJAB","SYA'BAN","RAMADHAN","SYAWAL","DZULQA'DAH","DZULHIJAH"
 
   RtcDateTime now = Rtc.GetDateTime();
   static unsigned long   lsRn;

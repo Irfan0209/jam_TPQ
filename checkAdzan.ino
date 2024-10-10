@@ -20,7 +20,7 @@ void check(){
     }
 
     if(counter!=1 and counter!=4 ){
-      if(jam == hours && menit == minutes && detik < 4){
+      if(jam == hours && menit == minutes && detik < 1){
       Disp.clear();
       sholatNow = counter;
       adzan = 1;
@@ -29,6 +29,12 @@ void check(){
       list    = 0;
       
       }
+    }
+
+    if(counter == 5){
+      if(hours != trigJam || minutes != trigMenit){ trigJam  = hours; trigMenit=minutes;
+      Serial.println("trigJam  :" + String(trigJam));
+      Serial.println("trigMenit:" + String(trigMenit));} 
     }
   
     counter++;
@@ -51,10 +57,10 @@ void drawAzzan()
     //RtcDateTime now = Rtc.GetDateTime();
     //int detik = now.Second();
    
-    if(Tmr - lsRn > 500)
+    if(Tmr - lsRn > 500  and ct <= config.durasiadzan)
       {
         lsRn = Tmr;
-        if((ct%2))
+        if((ct%2)==0)
           { 
             fType(3); dwCtr(0,0,"ADZAN");
             fType(3); dwCtr(0,8,sholat);
@@ -66,7 +72,7 @@ void drawAzzan()
         ct++;
         Serial.println("ct:" + String(ct));
       }
-    if ((Tmr-lsRn)>1000 and (ct >= config.durasiadzan))
+    if ((Tmr-lsRn)>1500 and (ct > config.durasiadzan))
       {
         sholatNow=-1;
         flag1=1;
@@ -75,6 +81,7 @@ void drawAzzan()
         Disp.clear();
         ct = 0;
         Buzzer(0);
+        Serial.println("adzan end");
       }
   }
 
@@ -131,9 +138,9 @@ void runAnimasiSholat(){
       hours ++;
   }
 
-  if(list==5){ 
-    if(hours != trigJam || minutes != trigMenit){ trigJam  = hours; trigMenit=minutes; } 
-  }
+  // if(list==5){ 
+    
+  // }
 
   sprintf(buff_jam,"%02d:%02d",hours,minutes);
 

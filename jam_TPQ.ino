@@ -72,7 +72,7 @@ int maxday[]            = {31, 28, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31};
 
 // Durasi waktu iqomah
 struct Config {
-  int chijir;
+  int chijir = 1;
   int durasiadzan;
   int ihti; // Koreksi Waktu Menit Jadwal Sholat
   float latitude  = -7.42;
@@ -137,8 +137,8 @@ byte   mode          = 1;
 bool   flag1         = 1;//variabel untuk menyimpan status animasi running text   
 bool   adzan         = 0;
 bool   stateBuzzer;
-int    trigJam;
-int    trigMenit;
+int    trigJam       = 17;
+int    trigMenit     = 30;
 int    DWidth        = Disp.width();
 int    DHeight       = Disp.height();
 byte   sholatNow     = -1;
