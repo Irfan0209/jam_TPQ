@@ -72,11 +72,11 @@ int maxday[]            = {31, 28, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31};
 
 // Durasi waktu iqomah
 struct Config {
-  int chijir = 1;
+  int chijir;
   int durasiadzan;
   int ihti; // Koreksi Waktu Menit Jadwal Sholat
-  float latitude  = -7.42;
-  float longitude = 111.008;
+  float latitude;
+  float longitude;
   int zonawaktu = 7;
 };
 
