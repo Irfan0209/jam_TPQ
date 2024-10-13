@@ -75,8 +75,8 @@ struct Config {
   int chijir;
   int durasiadzan;
   int ihti; // Koreksi Waktu Menit Jadwal Sholat
-  float latitude;
-  float longitude;
+  float latitude = -7.364057;
+  float longitude = 112.646222;
   int zonawaktu = 7;
 };
 
@@ -121,7 +121,7 @@ JamDanMenit waktuMagrib;
 Config config;
 
 // Pengaturan hotspot WiFi dari ESP8266
- char ssid[20]     = "JAM_PANEL";
+ char ssid[20]     = "JAM_PANEL_TPQ";
  char password[20] = "00000000";
 
 // Variabel untuk waktu, tanggal, teks berjalan, tampilan ,dan kecerahan
@@ -129,7 +129,7 @@ String setJam        = "00:00:00";
 String setTanggal    = "01-01-2024";
 String setText       = "Selamat Datang!";
 int    brightness    = 100;
-char   text[200];
+char   text[200]     = "TPQ FATCHUR ROCHMAN";
 int    speedDate     = 70; // Kecepatan default date
 int    speedText     = 60; // Kecepatan default text 
 byte   tampilan      = 1;
@@ -187,7 +187,7 @@ void Disp_init() {
 void AP_init(){
   // Konfigurasi hotspot WiFi dari ESP8266
   WiFi.softAPConfig(local_IP, gateway, subnet);
-  WiFi.softAP(ssid, password);
+  WiFi.softAP(ssid,password);
   IPAddress myIP = WiFi.softAPIP();
   Serial.print("AP IP address: ");
   Serial.println(myIP);
@@ -397,6 +397,7 @@ void loadFromEEPROM() {
   config.zonawaktu   = EEPROM.read(48);
   stateBuzzer        = EEPROM.read(52);
   String loadedPassword = readStringFromEEPROM(56); // Baca password dari EEPROM
+  //String loadedPassword="00000000";
   loadedPassword.toCharArray(password, loadedPassword.length() + 1); // Set password AP
   setText.toCharArray(text,setText.length()+1);
   (mode==1)? show = ANIM_JAM:show = ANIM_ZONK;
@@ -450,7 +451,8 @@ void setup() {
       Buzzer(0);
       delay(80);
   }
-
+//  RtcDateTime now = Rtc.GetDateTime();
+// Rtc.SetDateTime(RtcDateTime(2024, 10, 12, 14, 15, 00));
   Disp_init(); //Inisialisasi display
   AP_init();   //Inisialisasi Access Pointt
  JadwalSholat();
@@ -464,7 +466,7 @@ void loop() {
    
   switch(show){
     case ANIM_ZONK :
-      runningInfoMode2(); 
+     runningInfoMode2(); 
     break;
     case ANIM_JAM :
      runAnimasiJam();

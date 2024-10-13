@@ -87,7 +87,7 @@ void runAnimasiDate(){
   if(adzan) return;
   const char *pasar[]     ={"WAGE", "KLIWON", "LEGI", "PAHING", "PON"}; 
   const char *Hari[]      ={"MINGGU","SENIN","SELASA","RABU","KAMIS","JUM'AT","SABTU"};
-  const char *sholatt[]   ={"SUBUH","TERBIT","DZUHUR","ASHAR","TRBNM","MAGRIB","ISYA"};
+  //const char *sholatt[]   ={"SUBUH","TERBIT","DZUHUR","ASHAR","TRBNM","MAGRIB","ISYA"};
   const char *bulanMasehi[]={"JANUARI", "FEBRUARI", "MARET", "APRIL", "MEI", "JUNI", "JULI", "AGUSTUS", "SEPTEMBER", "OKTOBER", "NOVEMBER", "DESEMBER" };
   const char *namaBulanHijriah[] = {
     "MUHARRAM", "SHAFAR", "RABIUL AWAL",
@@ -101,14 +101,13 @@ void runAnimasiDate(){
   RtcDateTime now = Rtc.GetDateTime();
   static unsigned long   lsRn;
   unsigned long          Tmr = millis();
-  // bool flag=1;
    
   int Speed = speedDate;
   byte daynow   = now.DayOfWeek();    // load day Number
   
   char buff_date[50];
 
-  sprintf(buff_date,"%s %s %02d-%02d-%04d %02d %s %02dH",Hari[daynow],pasar[jumlahhari()%5],now.Day(),bulanMasehi[now.Month()-1],now.Year(),tanggalHijriah.tanggal, namaBulanHijriah[tanggalHijriah.bulan - 1], tanggalHijriah.tahun);
+  sprintf(buff_date,"%s %s %02d-%02d-%04d %02d %s %02dH",Hari[daynow],pasar[jumlahhari()%5],now.Day(),now.Month(),now.Year(),tanggalHijriah.tanggal, namaBulanHijriah[tanggalHijriah.bulan - 1], tanggalHijriah.tahun);
  
   int fullScroll = Disp.textWidth(buff_date) + Disp.width() ;
   //Serial.println("scroll:" + String(fullScroll));
