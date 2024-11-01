@@ -125,7 +125,7 @@ void runAnimasiDate(){
         Disp.clear();
         x=0; 
         reset_x=1;
-        show = ANIM_SHOLAT;
+        show = ANIM_JAM;
         return;
       }
     }
@@ -139,15 +139,16 @@ void drawAzzan()
     static uint8_t    ct;
     static uint32_t   lsRn;
     uint32_t          Tmr = millis();
+    uint8_t          limit = config.durasiadzan;
     //RtcDateTime now = Rtc.GetDateTime();
     //int detik = now.Second();
    
-    if(Tmr - lsRn > 500  and ct <= config.durasiadzan)
+    if(Tmr - lsRn > 500  and ct <= limit)
       {
         lsRn = Tmr;
         if((ct%2)==0)
           { 
-            fType(3); dwCtr(0,0,"ADZAN");
+            fType(0); dwCtr(0,0,"ADZAN");
             fType(3); dwCtr(0,8,sholat);
             Buzzer(1);
           }
@@ -157,7 +158,7 @@ void drawAzzan()
         ct++;
         Serial.println("ct:" + String(ct));
       }
-    if ((Tmr-lsRn)>1500 and (ct > config.durasiadzan))
+    if ((Tmr-lsRn)>1500 and (ct > limit))
       {
         sholatNow=-1;
         flag1=1;
@@ -232,6 +233,7 @@ void runAnimasiSholat(){
   if(s1==0){
     fType(3);
     dwCtr(0,y-9, sholat);
+    fType(0);
     dwCtr(0,18-y, buff_jam);
   }
   else{

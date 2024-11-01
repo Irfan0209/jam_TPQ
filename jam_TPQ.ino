@@ -129,7 +129,7 @@ String setJam        = "00:00:00";
 String setTanggal    = "01-01-2024";
 String setText       = "Selamat Datang!";
 int    brightness    = 100;
-char   text[200]     = "TPQ FATCHUR ROCHMAN";
+char   text[200] ;
 int    speedDate     = 70; // Kecepatan default date
 int    speedText     = 60; // Kecepatan default text 
 byte   tampilan      = 1;
@@ -316,7 +316,9 @@ void handleSetTime(){
     Serial.println(String()+"stateBuzzer:"+stateBuzzer);
     EEPROM.put(52, stateBuzzer);
     server.send(200, "text/plain", (stateBuzzer)?"Suara Diaktifkan":"Suara Dimatikan");
-    flag=1;
+  }
+  if (server.hasArg("status")) {
+    server.send(200, "text/plain", "CONNECTED");
   }
 /////////////////
   if (server.hasArg("newPassword")) {
@@ -333,7 +335,7 @@ void handleSetTime(){
   Serial.println((ok1) ? "First commit OK" : "Commit failed");
   if(flag){JadwalSholat(); flag=0;}
   delay(100);
-  Buzzer(0);
+  (stateBuzzer==1)?Buzzer(0) : digitalWrite(BUZZ,LOW);
   
   //server.send(200, "text/plain", "Pengaturan berhasil diupdate dan disimpan ke EEPROM!");
 }
@@ -423,7 +425,9 @@ void setup() {
   pinMode(BUZZ, OUTPUT); 
   pinMode(LED, OUTPUT);
   EEPROM.begin(EEPROM_SIZE); // Inisialisasi EEPROM dengan ukuran yang ditentukan
-
+  digitalWrite(BUZZ,HIGH);
+  delay(100);
+  digitalWrite(BUZZ,LOW);
   // Load data dari EEPROM
   loadFromEEPROM();
 
@@ -455,7 +459,7 @@ void setup() {
 // Rtc.SetDateTime(RtcDateTime(2024, 10, 12, 14, 15, 00));
   Disp_init(); //Inisialisasi display
   AP_init();   //Inisialisasi Access Pointt
- JadwalSholat();
+  JadwalSholat();
 }
 
 void loop() {
