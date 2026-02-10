@@ -21,8 +21,9 @@ void dwMrq(const char* msg, int Speed, int dDT,int fontt) //running teks ada jam
       { lss=Tmr;
         if (x < fullScroll) {++x;}
         else {
-          if(show==ANIM_JAM){show=ANIM_DATE;}
-          else if(show==ANIM_DATE){show=ANIM_JAM;}
+          RtcDateTime now = Rtc.GetDateTime();
+          if(show==ANIM_JAM){show=ANIM_DATE; Serial.println("TIME:" + String(now.Hour()) + "," + String(now.Minute()) + "," + String(now.Second()) + "," + String(now.DayOfWeek()));}
+         // else if(show==ANIM_BIG){show=ANIM_DATE;}
           x = 0; 
           fullScroll = 0;
           return;}
@@ -64,9 +65,6 @@ void drawGreg_TS(int y)   // Draw Time
     dwCtr(0,y,Buff);
     DoSwap = true;
   }
-
-uint16_t speedTextInfo = 40;   // kecepatan text1
-uint16_t speedTextDate = 45;   // kecepatan tanggal
 
 void runningInfoDanDate() {
   static int xInfo = 0;
@@ -129,7 +127,7 @@ void runningInfoDanDate() {
   bool needSwap = false;
 
   // ===== TEXT INFO =====
-  if (!infoDone && (nowMs - lastInfo) >= speedTextInfo) {
+  if (!infoDone && (nowMs - lastInfo) >= speedText1) {
     lastInfo = nowMs;
     if (xInfo < fullScrollInfo) {
       xInfo++;
@@ -140,7 +138,7 @@ void runningInfoDanDate() {
   }
 
   // ===== TEXT DATE =====
-  if (!dateDone && (nowMs - lastDate) >= speedTextDate) {
+  if (!dateDone && (nowMs - lastDate) >= speedDate) {
     lastDate = nowMs;
     if (xDate < fullScrollDate) {
       xDate++;
@@ -172,62 +170,109 @@ void runningInfoDanDate() {
   }
 }
 
-//==================== tampilkan jadwal sholat ====================//
-void animasiJadwalSholat(){
-  if(adzan) return;
-  RtcDateTime now = Rtc.GetDateTime();
-  static int        y=0;
-  static int        x=0;
-  static uint8_t    s=0; // 0=in, 1=out   
-  static uint8_t    s1=0;
-  
-  float sholatT[]={JWS.floatSubuh,JWS.floatTerbit,JWS.floatDhuha,JWS.floatDzuhur,JWS.floatAshar,JWS.floatMaghrib,JWS.floatIsya};
-  if(list != lastList){s=0; s1=0; x=0; y=0;lastList = list; }
-
-  static uint32_t   lsRn;
-  uint32_t          Tmr = millis(); 
-  
-  const char *jadwal[] = {"SUBUH","TERBIT","DHUHA", "DZUHUR", "ASHAR", "MAGRIB","ISYA'"};
-  char buff_jam[10];
-
-  if((Tmr-lsRn)>55) 
-  { 
-    if(s1==0 and y<9){lsRn=Tmr; y++; }
-    if(s==1 and x<33){lsRn=Tmr; x++; }
-  }
-
-  if((Tmr-lsRn)>800 and y == 9) {s1=1; s=1;} //4 detik
-
-  if (x == 33 and s==1 and s1 == 1) { 
-    s=0;
-    s1=0;
-    x=0;
-    y=0;
-    list++; 
-    //Serial.println(config.latitude,6);
-    if(list==7){list=0; Disp.clear(); show=ANIM_JAM; }
-  }
-
-  float stime = sholatT[list];
-  uint8_t shour = floor(stime);
-  uint8_t sminute = floor((stime - (float)shour) * 60);
-  uint8_t ssecond = floor((stime - (float)shour - (float)sminute / 60) * 3600);
-
-  sprintf(buff_jam, "%02d:%02d", shour, sminute);
-
-  if(s1==0){
-    fType(3);
-    dwCtr(0,y-9, jadwal[list]);
-    fType(0);
-    dwCtr(0,18-y, buff_jam);
-  }
-  else{
-    Disp.drawLine((list<6)?x-1:x,-1,(list<6)?x-1:x,16,1);
-    Disp.drawLine((list<6)?x-2:x-1,-1,(list<6)?x-2:x-1,16,0);
-  }
-  DoSwap = true;
+void tampilkanVolume() {
+  char buff[15];
+  snprintf(buff, sizeof(buff), "%s=%02d", "VOLUME", volume);
+  fType(1); 
+  dwCtr(0,4,buff); //tulisan nama
+  DoSwap  = true ;
 }
 
+//==================== tampilkan jadwal sholat ====================//
+
+const char* jadwal[] PROGMEM = {"SUBUH", "TERBIT", "DHUHA", "DZUHUR", "ASHAR", "MAGRIB", "ISYA'"};
+void animasiJadwalSholat() {
+  if(adzan) return;
+  
+  RtcDateTime now = Rtc.GetDateTime();
+  static int y = 0, y1 = 0;
+  static uint8_t s = 0, s1 = 0;
+  static bool run = false;
+
+  static uint32_t lsRn_y1 = 0;
+  static uint32_t lsRn_y = 0;
+  static uint32_t tHold = 0;
+
+  uint32_t Tmr = millis();
+
+  // Pilih waktu sholat sesuai list
+  float stime;
+  switch (list) {
+    case 0: stime = JWS.floatSubuh; break;
+    case 1: stime = JWS.floatTerbit; break;
+    case 2: stime = JWS.floatDhuha; break;
+    case 3: stime = JWS.floatDzuhur; break;
+    case 4: stime = JWS.floatAshar; break;
+    case 5: stime = JWS.floatMaghrib; break;
+    case 6: stime = JWS.floatIsya; break;
+    default: stime = 0; break;
+  }
+
+  // Transisi vertikal y1 (jam muncul/hilang)
+  if ((Tmr - lsRn_y1) > 55) {
+    lsRn_y1 = Tmr;
+
+    if (s1 == 0 && y1 < 17) { y1++; } 
+    else if (s1 == 1 && y1 > 0) { y1--; }
+  }
+
+  // Saat y1 selesai muncul, mulai animasi jadwal
+  if (y1 == 17 && s1 == 0) {
+    run = true; 
+  }
+
+  // Animasi gerakan teks (y)
+  if (run && (Tmr - lsRn_y) > 55) {
+    lsRn_y = Tmr;
+
+    if (s == 0 && y < 9) {
+      y++;
+    } else if (s == 1 && y > 0) {
+      y--;
+    }
+  }
+
+  // Delay sebelum animasi keluar (reverse)
+  if (y == 9 && s == 0 && tHold == 0) {
+    tHold = millis();
+  }
+  if (tHold > 0 && (millis() - tHold > 1000)) {
+    s = 1;     // mulai keluar
+    tHold = 0; // reset timer
+  }
+
+  // Setelah animasi selesai
+  if (y == 0 && s == 1) {
+    s = 0;
+    list = (list + 1) % 7;
+    if (list == 0) {
+      run = false;
+      s1 = 1; // trigger keluar vertikal
+    }
+  }
+
+  // Tampilkan teks jadwal sholat
+  uint8_t shour = (uint8_t)stime;
+  uint8_t sminute = (uint8_t)((stime - shour) * 60);
+
+  char buf[6];
+  buf[0] = '0' + shour / 10;
+  buf[1] = '0' + shour % 10;
+  buf[2] = ':';
+  buf[3] = '0' + sminute / 10;
+  buf[4] = '0' + sminute % 10;
+  buf[5] = '\0';
+
+  fType(0);
+  dwCtr(0, y - 9, jadwal[list]);
+  fType(1);
+  dwCtr(0, 18 - y, buf);
+  DoSwap = true;
+  if (y1 == 0 && s1 == 1) {
+    s1 = 0;
+    show = ANIM_JAM; // ganti mode jika perlu
+  }
+}
 //=========================================================================//
 
 /*======================= animasi memasuki waktu sholat ====================================*/
@@ -255,7 +300,7 @@ void drawAzzan()
         else
         {
             Buzzer(0);
-            Disp.clear();
+            //Disp.clear();
         }
         ct++;
     }
@@ -273,8 +318,8 @@ void drawAzzan()
 //=========================== setingan untuk tampilan text=================//
 void fType(int x)
   {
-   // if(x==2) Disp.setFont(Font0);
-     if(x==1) Disp.setFont(Font1); 
+    if(x==0) Disp.setFont(Font0);
+     else if(x==1) Disp.setFont(Font1); 
     //else if(x==2) Disp.setFont(Font2);
     else if(x==3) Disp.setFont(Font3);
     //else if(x==4) Disp.setFont(Font4);

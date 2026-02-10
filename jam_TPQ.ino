@@ -40,7 +40,7 @@
 
 //#include <font/KecNumber.h>
 #include <C:\Users\irfan\Documents\Arduino\libraries\DMDESP-master\fonts/BigNumber.h>
-//#include <font/Font4x6.h>
+#include <C:\Users\irfan\Documents\Arduino\libraries\DMDESP-master\fonts/Font4x6.h>
 #include <C:\Users\irfan\Documents\Arduino\libraries\DMDESP-master\fonts/SystemFont5x7.h>
 //#include <font/Font3x5.h>
 #include <C:\Users\irfan\Documents\Arduino\libraries\DMDESP-master\fonts/EMSans8x16.h>
@@ -56,7 +56,7 @@
 
 #define BUZZ    D4 
 
-//#define Font0 Font4x6
+#define Font0 Font4x6
 #define Font3 BigNumber
 //#define Font2 Font3x5
 #define Font1 SystemFont5x7
@@ -123,8 +123,17 @@ bool       stateBuzzWar    = 0;
 bool       counterName     = 1;
 bool       DoSwap          = false;
 
+bool showVolumeTemp = false;
+unsigned long volumeDisplayMillis = 0;
+const unsigned long volumeDisplayDuration = 2000; // 1 detik
+
+const uint8_t MAX_VOLUME = 25;
+const uint8_t MIN_VOLUME = 0;
+
+byte volume = 10;
+
 enum Show{
-  ANIM_ZONK,
+  ANIM_BIG,
   ANIM_JAM,
   ANIM_DATE,
   ANIM_NAME,
@@ -230,73 +239,6 @@ void Disp_init_esp() {
   interrupts();
 }
 
-//IPAddress local_IP(192, 168, 2, 1);      // IP Address untuk AP
-//IPAddress gateway(192, 168, 2, 1);       // Gateway
-//IPAddress subnet(255, 255, 255, 0);      // Subnet mask
-//
-//void ONLINE() {
-//
-//  WiFi.mode(WIFI_STA);
-//  WiFi.softAPConfig(local_IP, gateway, subnet);
-//  wm.setConfigPortalTimeout(120);
-//  bool res = wm.autoConnect(ssid, password); // password protected ap
-//
-//  if (!res) {
-//    Serial.println("Failed to connect or hit timeout");
-//    digitalWrite(BUZZ, LOW);
-//    stateMode = 0;
-//    EEPROM.write(ADDR_MODE, stateMode);
-//    EEPROM.commit();
-//    delay(3000);
-//    ESP.restart();
-//  }
-//
-//  // === Tambahan: kirim info WiFi ke Serial ===
-//  if (WiFi.status() == WL_CONNECTED) {
-//    String currentSSID = WiFi.SSID();
-//    String currentPASS = WiFi.psk();  // mengambil password yang tersimpan (WiFiManager)
-//  
-//    Serial.print("WIFI_SSID:"); Serial.println(currentSSID);
-//    Serial.print("WIFI_PASS:"); Serial.println(currentPASS);
-//    
-//  } else {
-//    Serial.println("WiFi not connected!");
-//  }
-//  // === akhir tambahan ===
-//
-//  ArduinoOTA.setHostname(host);
-//  ArduinoOTA.onStart([]() {
-//    String type;
-//    if (ArduinoOTA.getCommand() == U_FLASH) {
-//      type = "sketch";
-//    } else {
-//      type = "filesystem";
-//    }
-//    Serial.println("Start updating " + type);
-//  });
-//  ArduinoOTA.onEnd([]() {
-//    Serial.println("restart");
-//    stateMode = 0;
-//    EEPROM.write(ADDR_MODE, stateMode);
-//    EEPROM.commit();
-//    delay(1000);
-//    ESP.restart();
-//  });
-//  ArduinoOTA.onProgress([](unsigned int progress, unsigned int total) {
-//    Serial.printf("Progress: %u%%\r", (progress / (total / 100)));
-//  });
-//  ArduinoOTA.onError([](ota_error_t error) {
-//    Serial.printf("Error[%u]: ", error);
-//    if (error == OTA_AUTH_ERROR) Serial.println("Auth Failed");
-//    else if (error == OTA_BEGIN_ERROR) Serial.println("Begin Failed");
-//    else if (error == OTA_CONNECT_ERROR) Serial.println("Connect Failed");
-//    else if (error == OTA_RECEIVE_ERROR) Serial.println("Receive Failed");
-//    else if (error == OTA_END_ERROR) Serial.println("End Failed");
-//  });
-//  ArduinoOTA.begin();
-//}
-
-
 void setup() {
   Serial.begin(9600);
   EEPROM.begin(EEPROM_SIZE);
@@ -325,14 +267,9 @@ void setup() {
   Rtc.SetSquareWavePin(DS3231SquareWavePin_ModeNone);
   //loadFromEEPROM();
   delay(1000);
-//  if(stateMode){
-//    show = UPLOAD;
-//    ONLINE();
-//  }else{
-    Disp_init_esp();
-    Serial.println("PANEL_OK");
-    //stateSendSholat = true;
-//  }
+  Disp_init_esp();
+  Serial.println("PANEL_OK");
+  
  
   delay(1000);
 for(int i = 0; i < 4; i++)
@@ -344,10 +281,7 @@ for(int i = 0; i < 4; i++)
  }
 
 }
-bool modeFontBig = false;
-bool modeOut = false;
- bool modeOutDate = false;
- bool mod = false;
+
 void loop() {
 
 //if(stateMode == 1){
@@ -364,23 +298,23 @@ void loop() {
 //           ESP.restart();
 //        }
 //   }
-//  }else{
- // server.handleClient(); // Menangani permintaan dari MIT App Inventor
-//  check();
+//  }else{// }
+
+  handleSetTimeSerial();
+  check();
   DoSwap  = false ;
   Disp.clear();
   islam();
- // }
-  
+ 
   switch (show) {
-    case ANIM_ZONK :
+    case ANIM_BIG :
       dwMrq(text1,60,3,1);
       break;
     case ANIM_JAM :
-      dwMrq(text1,60,2,1);
+      dwMrq(text1,40,2,1);
       break;
     case ANIM_DATE :
-    runningInfoDanDate();
+      runningInfoDanDate();
       break;
     case ANIM_SHOLAT :
       animasiJadwalSholat();
