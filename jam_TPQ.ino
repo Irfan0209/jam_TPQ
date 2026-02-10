@@ -29,12 +29,12 @@
 #define DISPLAYS_HIGH 1
 //#include <SoftwareSerial.h>
 #include <DMDESP.h>
-#include <ESP8266WiFi.h>
-#include <WiFiManager.h>
+//#include <ESP8266WiFi.h>
+//#include <WiFiManager.h>
 //////////
-#include <ESP8266mDNS.h>
-#include <WiFiUdp.h>
-#include <ArduinoOTA.h>
+//#include <ESP8266mDNS.h>
+//#include <WiFiUdp.h>
+//#include <ArduinoOTA.h>
 
 #define EEPROM_SIZE 512
 
@@ -78,7 +78,7 @@ RtcDS3231<TwoWire> Rtc(Wire);
 RtcDateTime now;
 DMDESP  Disp(DISPLAYS_WIDE, DISPLAYS_HIGH);  // Jumlah Panel P10 yang digunakan (KOLOM,BARIS)
 
-WiFiManager wm; // global wm instance
+//WiFiManager wm; // global wm instance
 
 // Constractor
 Prayer JWS;
@@ -99,8 +99,8 @@ struct Config {
 Config config;
 
 // Variabel untuk waktu, tanggal, teks berjalan, tampilan ,dan kecerahan
-char text1[101]="test", text2[101]="test",name[101]="test";
-uint16_t   brightness    = 50;
+char text1[101]="test desa tanjungsari,dusun ngampel RT16 RW02", text2[101]="test",name[101]="test";
+uint16_t   brightness    = 20;
 bool       adzan         = 0;
 bool       stateBuzzer   = 1;
 uint8_t    DWidth        = Disp.width();
@@ -217,12 +217,12 @@ void ICACHE_RAM_ATTR refresh() {
 }
 
 void Disp_init_esp() {
-   Disp.setDoubleBuffer(true);
+  Disp.setDoubleBuffer(true);
   Disp.start();
   Disp.clear();
   Disp.setBrightness(brightness);
   //Serial.println("Setup dmd selesai");
-
+  Disp.swapBuffers();
   noInterrupts();
   timer0_isr_init();
   timer0_attachInterrupt(refresh);
@@ -230,81 +230,81 @@ void Disp_init_esp() {
   interrupts();
 }
 
-IPAddress local_IP(192, 168, 2, 1);      // IP Address untuk AP
-IPAddress gateway(192, 168, 2, 1);       // Gateway
-IPAddress subnet(255, 255, 255, 0);      // Subnet mask
-
-void ONLINE() {
-
-  WiFi.mode(WIFI_STA);
-  WiFi.softAPConfig(local_IP, gateway, subnet);
-  wm.setConfigPortalTimeout(120);
-  bool res = wm.autoConnect(ssid, password); // password protected ap
-
-  if (!res) {
-    Serial.println("Failed to connect or hit timeout");
-    digitalWrite(BUZZ, LOW);
-    stateMode = 0;
-    EEPROM.write(ADDR_MODE, stateMode);
-    EEPROM.commit();
-    delay(3000);
-    ESP.restart();
-  }
-
-  // === Tambahan: kirim info WiFi ke Serial ===
-  if (WiFi.status() == WL_CONNECTED) {
-    String currentSSID = WiFi.SSID();
-    String currentPASS = WiFi.psk();  // mengambil password yang tersimpan (WiFiManager)
-  
-    Serial.print("WIFI_SSID:"); Serial.println(currentSSID);
-    Serial.print("WIFI_PASS:"); Serial.println(currentPASS);
-    
-  } else {
-    Serial.println("WiFi not connected!");
-  }
-  // === akhir tambahan ===
-
-  ArduinoOTA.setHostname(host);
-  ArduinoOTA.onStart([]() {
-    String type;
-    if (ArduinoOTA.getCommand() == U_FLASH) {
-      type = "sketch";
-    } else {
-      type = "filesystem";
-    }
-    Serial.println("Start updating " + type);
-  });
-  ArduinoOTA.onEnd([]() {
-    Serial.println("restart");
-    stateMode = 0;
-    EEPROM.write(ADDR_MODE, stateMode);
-    EEPROM.commit();
-    delay(1000);
-    ESP.restart();
-  });
-  ArduinoOTA.onProgress([](unsigned int progress, unsigned int total) {
-    Serial.printf("Progress: %u%%\r", (progress / (total / 100)));
-  });
-  ArduinoOTA.onError([](ota_error_t error) {
-    Serial.printf("Error[%u]: ", error);
-    if (error == OTA_AUTH_ERROR) Serial.println("Auth Failed");
-    else if (error == OTA_BEGIN_ERROR) Serial.println("Begin Failed");
-    else if (error == OTA_CONNECT_ERROR) Serial.println("Connect Failed");
-    else if (error == OTA_RECEIVE_ERROR) Serial.println("Receive Failed");
-    else if (error == OTA_END_ERROR) Serial.println("End Failed");
-  });
-  ArduinoOTA.begin();
-}
+//IPAddress local_IP(192, 168, 2, 1);      // IP Address untuk AP
+//IPAddress gateway(192, 168, 2, 1);       // Gateway
+//IPAddress subnet(255, 255, 255, 0);      // Subnet mask
+//
+//void ONLINE() {
+//
+//  WiFi.mode(WIFI_STA);
+//  WiFi.softAPConfig(local_IP, gateway, subnet);
+//  wm.setConfigPortalTimeout(120);
+//  bool res = wm.autoConnect(ssid, password); // password protected ap
+//
+//  if (!res) {
+//    Serial.println("Failed to connect or hit timeout");
+//    digitalWrite(BUZZ, LOW);
+//    stateMode = 0;
+//    EEPROM.write(ADDR_MODE, stateMode);
+//    EEPROM.commit();
+//    delay(3000);
+//    ESP.restart();
+//  }
+//
+//  // === Tambahan: kirim info WiFi ke Serial ===
+//  if (WiFi.status() == WL_CONNECTED) {
+//    String currentSSID = WiFi.SSID();
+//    String currentPASS = WiFi.psk();  // mengambil password yang tersimpan (WiFiManager)
+//  
+//    Serial.print("WIFI_SSID:"); Serial.println(currentSSID);
+//    Serial.print("WIFI_PASS:"); Serial.println(currentPASS);
+//    
+//  } else {
+//    Serial.println("WiFi not connected!");
+//  }
+//  // === akhir tambahan ===
+//
+//  ArduinoOTA.setHostname(host);
+//  ArduinoOTA.onStart([]() {
+//    String type;
+//    if (ArduinoOTA.getCommand() == U_FLASH) {
+//      type = "sketch";
+//    } else {
+//      type = "filesystem";
+//    }
+//    Serial.println("Start updating " + type);
+//  });
+//  ArduinoOTA.onEnd([]() {
+//    Serial.println("restart");
+//    stateMode = 0;
+//    EEPROM.write(ADDR_MODE, stateMode);
+//    EEPROM.commit();
+//    delay(1000);
+//    ESP.restart();
+//  });
+//  ArduinoOTA.onProgress([](unsigned int progress, unsigned int total) {
+//    Serial.printf("Progress: %u%%\r", (progress / (total / 100)));
+//  });
+//  ArduinoOTA.onError([](ota_error_t error) {
+//    Serial.printf("Error[%u]: ", error);
+//    if (error == OTA_AUTH_ERROR) Serial.println("Auth Failed");
+//    else if (error == OTA_BEGIN_ERROR) Serial.println("Begin Failed");
+//    else if (error == OTA_CONNECT_ERROR) Serial.println("Connect Failed");
+//    else if (error == OTA_RECEIVE_ERROR) Serial.println("Receive Failed");
+//    else if (error == OTA_END_ERROR) Serial.println("End Failed");
+//  });
+//  ArduinoOTA.begin();
+//}
 
 
 void setup() {
-   Serial.begin(9600);
+  Serial.begin(9600);
   EEPROM.begin(EEPROM_SIZE);
   
   pinMode(BUZZ, OUTPUT); 
-  digitalWrite(BUZZ,LOW);
+  Buzzer(1);
   delay(200);
-  digitalWrite(BUZZ,HIGH);
+  Buzzer(0);
   int rtn = I2C_ClearBus(); // clear the I2C bus first before calling Wire.begin()
     if (rtn != 0) {
       Serial.println(F("I2C bus error. Could not clear"));
@@ -344,7 +344,10 @@ for(int i = 0; i < 4; i++)
  }
 
 }
-
+bool modeFontBig = false;
+bool modeOut = false;
+ bool modeOutDate = false;
+ bool mod = false;
 void loop() {
 
 //if(stateMode == 1){
@@ -364,21 +367,20 @@ void loop() {
 //  }else{
  // server.handleClient(); // Menangani permintaan dari MIT App Inventor
 //  check();
-//  islam();
- // }
   DoSwap  = false ;
   Disp.clear();
+  islam();
+ // }
+  
   switch (show) {
     case ANIM_ZONK :
-      runningInfoMode2();
+      dwMrq(text1,60,3,1);
       break;
     case ANIM_JAM :
-      runAnimasiJam();
-      runningInfoMode1();
+      dwMrq(text1,60,2,1);
       break;
     case ANIM_DATE :
-      runAnimasiDate();
-      runningInfoMode1();
+    runningInfoDanDate();
       break;
     case ANIM_SHOLAT :
       animasiJadwalSholat();
@@ -400,7 +402,7 @@ void buzzerUpload(){
     if(tmr - save > 1000 ){
       save = tmr;
       state = !state;
-      digitalWrite(BUZZ, state);
+      Buzzer(state);
       
     }
 }
@@ -415,7 +417,7 @@ void buzzerWarning(int cek){
     if(tmr - save > 2500 && cek == 1){
       save = tmr;
       state = !state;
-      digitalWrite(BUZZ, state);
+      Buzzer(state);
       if(con <= 6) { con++; }
       if(con == 7) { cek = 0; con = 0; state = false; stateBuzzWar = 0; }
     } 
@@ -428,10 +430,10 @@ void Buzzer(uint8_t state)
     
     switch(state){
       case 0 :
-        digitalWrite(BUZZ,HIGH);
+        noTone(BUZZ);
       break;
       case 1 :
-        digitalWrite(BUZZ,LOW);
+        tone(BUZZ,2000);
       break;
     };
   }

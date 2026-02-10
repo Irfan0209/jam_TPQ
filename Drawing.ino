@@ -1,136 +1,175 @@
-void runningInfoMode1(){
-  static unsigned int x;
-  if (reset_x !=0) {x=0;reset_x = 0;}
- // if(adzan==1 || flag1==0) { return; }
-  
-  int Speed = speedText1;
-  
-  static unsigned long lsRn;
-  unsigned long Tmr = millis();
-  
-  int fullScroll = Disp.textWidth(text1) + Disp.width() + 10;
-  
+//==================== animasi jam dan running text =================//
+void dwMrq(const char* msg, int Speed, int dDT,int fontt) //running teks ada jam nya
+  { 
+    static uint16_t   x; 
+    if(adzan) return;
+    if (reset_x !=0) { x=0; reset_x = 0;}      
 
-  if((Tmr-lsRn)> Speed)
-    { lsRn = Tmr;
-      fType(0);
-      if (x < fullScroll) { 
-        ++x; 
-        //Serial.println(String()+"x:" + x); 
-        Disp.drawText(Disp.width() - x, 9, text1);
-      }
-      else {  
-        x=0; 
-        return;
-      }
-      DoSwap = true;
-    }
-}
-
-void runningInfoMode2(){
-  static unsigned int x;
-  if (reset_x !=0) {x=0;reset_x = 0;}
-  if(adzan) return;
-  
-  int Speed = speedText2;
-  
-  static unsigned long lsRn;
-  unsigned long Tmr = millis();
-  
-  int fullScroll = Disp.textWidth(text2) + Disp.width() + 10;
-  
-
-  if((Tmr-lsRn)> Speed)
-    { lsRn = Tmr;
-      fType(2);
-      if (x < fullScroll) { 
-        ++x; 
-        //Serial.println(String()+"x:" + x); 
-        Disp.drawText(Disp.width() - x, 0 , text2);
-      }
-      else {  
-        x=0; 
-        return;
-      }
-      DoSwap = true;
-    }
-}
-
-void runAnimasiJam(){
-  if(adzan) return;
-  RtcDateTime now = Rtc.GetDateTime();
-  static int    y=0;
-  static bool    s; // 0=in, 1=out              
-  static unsigned long   lsRn;
-  unsigned long          Tmr = millis();
-  int dot    = now.Second();
-  char buff_jam[20];
-  
-  if(dot%2){sprintf(buff_jam,"%02d:%02d",now.Hour(),now.Minute());}
-  else{sprintf(buff_jam,"%02d %02d",now.Hour(),now.Minute());}
-  
-  if((Tmr-lsRn)>75) 
-      { 
-        if(s==0 and y<9){lsRn=Tmr;y++; }
-        if(s==1 and y>0){lsRn=Tmr;y--; if(y == 1){ Disp.drawText(0,0, "          "); }}
-      }
-   if((Tmr-lsRn)>10000 and y ==9) {s=1;}
-
-   if (y == 0 and s==1) { s=0; show = ANIM_DATE;}
-  
-  fType(0); 
-  dwCtr(0,y-9, buff_jam); 
-  DoSwap = true;
-}
-
-void runAnimasiDate(){
-  static unsigned int x;
-  if (reset_x !=0) { x=0;reset_x = 0;}
-  if(adzan) return;
-  const char *pasar[]     ={"WAGE", "KLIWON", "LEGI", "PAHING", "PON"}; 
-  const char *Hari[]      ={"MINGGU","SENIN","SELASA","RABU","KAMIS","JUM'AT","SABTU"};
-  //const char *sholatt[]   ={"SUBUH","TERBIT","DZUHUR","ASHAR","TRBNM","MAGRIB","ISYA"};
-  const char *bulanMasehi[]={"JANUARI", "FEBRUARI", "MARET", "APRIL", "MEI", "JUNI", "JULI", "AGUSTUS", "SEPTEMBER", "OKTOBER", "NOVEMBER", "DESEMBER" };
-  const char *namaBulanHijriah[] = {
-    "MUHARRAM", "SHAFAR", "RABIUL AWAL",
-    "RABIUL AKHIR", "JUMADIL AWAL", 
-    "JUMADIL AKHIR", "RAJAB",
-    "SYA'BAN", "RAMADHAN", "SYAWAL",
-    "DZULQA'DAH", "DZULHIJAH"
-  };
-//"MUHARRAM","SHAFAR","RAB.AWAL","RAB.AKHIR","JUM.AWAL","JUM.AKHIR","RAJAB","SYA'BAN","RAMADHAN","SYAWAL","DZULQA'DAH","DZULHIJAH"
-
-  RtcDateTime now = Rtc.GetDateTime();
-  static unsigned long   lsRn;
-  unsigned long          Tmr = millis();
+    uint32_t          Tmr = millis();
+    static uint32_t lss=0;
+    static uint16_t fullScroll = 0;
+    
+     
+    if (fullScroll == 0) { // Hitung hanya sekali
+       fType(fontt);
+       fullScroll = Disp.textWidth(msg) + DWidth ; 
+    }   
+    
+    
+    
+    if((Tmr-lss)> Speed)
+      { lss=Tmr;
+        if (x < fullScroll) {++x;}
+        else {
+          if(show==ANIM_JAM){show=ANIM_DATE;}
+          else if(show==ANIM_DATE){show=ANIM_JAM;}
+          x = 0; 
+          fullScroll = 0;
+          return;}
+     if(dDT==1)
+        {
+        //fType(1);  //Marquee    jam yang tampil di bawah
+        Disp.drawText(DWidth - x, 0, msg); //runing teks diatas
+        //fType(1);
+        if (x<=6)                     { drawGreg_TS(16-x);}
+        else if (x>=(fullScroll-6))   { drawGreg_TS(16-(fullScroll-x));}
+        else                          { drawGreg_TS(9);}//posisi jamnya yang bawah
    
-  int Speed = speedDate;
-  byte daynow   = now.DayOfWeek();    // load day Number
-  
-  char buff_date[50];
+        }
+     else if(dDT==2) //jam yang diatas
+        {    
+        //fType(1);
+        if (x<=6)                     { drawGreg_TS(x-6);}
+        else if (x>=(fullScroll-6))   { drawGreg_TS((fullScroll-x)-6);}
+        else                          { drawGreg_TS(0);}  //posisi jam nya yang diatas
+        //fType(1); //Marquee  running teks dibawah
+        Disp.drawText(DWidth - x, 9 , msg);//runinng teks dibawah
+        
+        }
+      else if(dDT==3) //jam yang diatas
+      {
+        //fType(1);  //Marquee    jam yang tampil di bawah
+        Disp.drawText(DWidth - x, 0, msg); //runing teks diatas
+      }
+        DoSwap = true;
+      }          
+     
+  }
 
-  sprintf(buff_date,"%s %s %02d-%02d-%04d %02d %s %02dH",Hari[daynow],pasar[jumlahhari()%5],now.Day(),now.Month(),now.Year(),Hijir.getHijriyahDate,namaBulanHijriah[Hijir.getHijriyahMonth - 1], Hijir.getHijriyahYear);
- 
-  int fullScroll = Disp.textWidth(buff_date) + Disp.width() ;
-  //Serial.println("scroll:" + String(fullScroll));
-    if((Tmr-lsRn)> Speed)
-    { 
-      lsRn = Tmr;
-      if (x < fullScroll) { 
-        ++x; 
-        fType(0); 
-        Disp.drawText(Disp.width() - x,0, buff_date);
-      }
-      else {  
-        //flag1=1;
-        Disp.clear();
-        x=0; 
-        reset_x=1;
-        show = ANIM_JAM;
-        return;
-      }
-      DoSwap = true;
+void drawGreg_TS(int y)   // Draw Time
+  {
+    RtcDateTime now = Rtc.GetDateTime();
+    char  Buff[8];
+    sprintf(Buff,"%02d:%02d",now.Hour(),now.Minute());
+    dwCtr(0,y,Buff);
+    DoSwap = true;
+  }
+
+uint16_t speedTextInfo = 40;   // kecepatan text1
+uint16_t speedTextDate = 45;   // kecepatan tanggal
+
+void runningInfoDanDate() {
+  static int xInfo = 0;
+  static int xDate = 0;
+  static int fullScrollInfo = 0;
+  static int fullScrollDate = 0;
+
+  static unsigned long lastInfo = 0;
+  static unsigned long lastDate = 0;
+
+  static bool initDone = false;
+  static bool infoDone = false;
+  static bool dateDone = false;
+
+  static char buff_date[60];
+
+  if (reset_x) {
+    xInfo = 0;
+    xDate = 0;
+    infoDone = false;
+    dateDone = false;
+    initDone = false;
+    reset_x = 0;
+  }
+
+  if (adzan) return;
+
+  if (!initDone) {
+    fType(1);
+
+    fullScrollInfo = Disp.textWidth(text1) + Disp.width();
+
+    const char *pasar[] = {"WAGE","KLIWON","LEGI","PAHING","PON"};
+    const char *Hari[]  = {"MINGGU","SENIN","SELASA","RABU","KAMIS","JUM'AT","SABTU"};
+    const char *namaBulanHijriah[] = {
+      "MUHARRAM","SHAFAR","RABIUL AWAL","RABIUL AKHIR",
+      "JUMADIL AWAL","JUMADIL AKHIR","RAJAB",
+      "SYA'BAN","RAMADHAN","SYAWAL",
+      "DZULQA'DAH","DZULHIJAH"
+    };
+
+    RtcDateTime now = Rtc.GetDateTime();
+
+    sprintf(
+      buff_date,
+      "%s %s %02d-%02d-%04d %02d %s %02dH",
+      Hari[now.DayOfWeek()],
+      pasar[jumlahhari() % 5],
+      now.Day(), now.Month(), now.Year(),
+      Hijir.getHijriyahDate,
+      namaBulanHijriah[Hijir.getHijriyahMonth - 1],
+      Hijir.getHijriyahYear
+    );
+
+    fullScrollDate = Disp.textWidth(buff_date) + Disp.width();
+    initDone = true;
+  }
+
+  unsigned long nowMs = millis();
+  bool needSwap = false;
+
+  // ===== TEXT INFO =====
+  if (!infoDone && (nowMs - lastInfo) >= speedTextInfo) {
+    lastInfo = nowMs;
+    if (xInfo < fullScrollInfo) {
+      xInfo++;
+    } else {
+      infoDone = true;
     }
+    needSwap = true;
+  }
+
+  // ===== TEXT DATE =====
+  if (!dateDone && (nowMs - lastDate) >= speedTextDate) {
+    lastDate = nowMs;
+    if (xDate < fullScrollDate) {
+      xDate++;
+    } else {
+      dateDone = true;
+    }
+    needSwap = true;
+  }
+
+  if (!needSwap) return;
+
+  //Disp.clear();
+
+  if (!infoDone)
+    Disp.drawText(Disp.width() - xInfo, 9, text1);
+
+  if (!dateDone)
+    Disp.drawText(Disp.width() - xDate, 0, buff_date);
+
+  DoSwap = true;
+
+  // ===== PINDAH ANIMASI JIKA KEDUANYA SELESAI =====
+  if (infoDone && dateDone) {
+    xInfo = 0;
+    xDate = 0;
+    infoDone = false;
+    dateDone = false;
+    show = ANIM_SHOLAT;   // animasi berikutnya
+  }
 }
 
 //==================== tampilkan jadwal sholat ====================//
