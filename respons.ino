@@ -1,4 +1,4 @@
-
+/*
 void setVolume(byte newVolume) {
 
   if (newVolume > MAX_VOLUME) {
@@ -20,4 +20,4 @@ void setVolume(byte newVolume) {
   // Aktifkan tampilan sementara
   showVolumeTemp = true;
   volumeDisplayMillis = millis();
-}
+}*/

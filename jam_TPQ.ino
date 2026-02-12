@@ -99,7 +99,7 @@ struct Config {
 Config config;
 
 // Variabel untuk waktu, tanggal, teks berjalan, tampilan ,dan kecerahan
-char text1[101]="test desa tanjungsari,dusun ngampel RT16 RW02", text2[101]="test",name[101]="test";
+char text1[101], text2[101],name[101];
 uint16_t   brightness    = 20;
 bool       adzan         = 0;
 bool       stateBuzzer   = 1;
@@ -204,15 +204,7 @@ void handleSetTimeSerial() {
   input.trim(); // hapus spasi dan newline
 
   if (input.length() == 0) return;
-  
-//  if (input == "REQ:DISPLAY")  kirimDisplay();
-//  else if (input == "REQ:LOKASI")   kirimLokasi();
-//  else if (input == "REQ:PESAN")    kirimPesan();
-//  else if (input == "REQ:KOREKSI")  kirimKoreksi();
-//  else if (input == "REQ:IQOMAH")   kirimIqomah();
-//  Serial.print("Input diterima: ");
-//  Serial.println(input);
-
+ 
   // Panggil fungsi getData() untuk memproses input
   getData(input);
 }
@@ -265,7 +257,7 @@ void setup() {
   Rtc.Begin();
   Rtc.Enable32kHzPin(false);
   Rtc.SetSquareWavePin(DS3231SquareWavePin_ModeNone);
-  //loadFromEEPROM();
+  loadFromEEPROM();
   delay(1000);
   Disp_init_esp();
   Serial.println("PANEL_OK");
@@ -283,22 +275,6 @@ for(int i = 0; i < 4; i++)
 }
 
 void loop() {
-
-//if(stateMode == 1){
-//    ArduinoOTA.handle(); 
-//    if (Serial.available()) {
-//        String input = Serial.readStringUntil('\n');
-//        input.trim();
-//      
-//        if (input.equalsIgnoreCase("restart=1")) {
-//           stateMode = 0;
-//           EEPROM.write(ADDR_MODE, stateMode);
-//           EEPROM.commit();
-//           delay(1000);
-//           ESP.restart();
-//        }
-//   }
-//  }else{// }
 
   handleSetTimeSerial();
   check();
@@ -621,14 +597,14 @@ void getData(String input) {
       if(state) {
         Buzzer(1); 
         Serial.println("RESTART_OK"); 
-        stateMode = 0;
-        EEPROM.write(ADDR_MODE, stateMode); 
+//        stateMode = 0;
+//        EEPROM.write(ADDR_MODE, stateMode); 
         delay(1000);
         ESP.restart();
       }
     }
 
-//    else if (key == "volume up") {
+//    else if (key == "VOL") {
 //    byte val = value.toInt();
 //    setVolume(val);
 //    }
@@ -638,16 +614,16 @@ void getData(String input) {
 //    setVolume(val);
 //    }
 
-    else if (key == "newPassword") {
-      if (value.length() == 8) {
-        value.toCharArray(password, value.length() + 1);
-        saveStringToEEPROM(ADDR_PASSWORD, value, 8);
-        //server.send(200, "text/plain", "Password WiFi diupdate");
-        Buzzer(1);
-        delay(500);
-        ESP.restart();
-      }
-    }
+//    else if (key == "newPassword") {
+//      if (value.length() == 8) {
+//        value.toCharArray(password, value.length() + 1);
+//        saveStringToEEPROM(ADDR_PASSWORD, value, 8);
+//        //server.send(200, "text/plain", "Password WiFi diupdate");
+//        Buzzer(1);
+//        delay(500);
+//        ESP.restart();
+//      }
+//    }
 
     EEPROM.commit(); // Penting! simpan perubahan
   }
