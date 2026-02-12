@@ -12,25 +12,29 @@
 #include <DFRobotDFPlayerMini.h>
 #include <EEPROM.h>
 #include <TimeLib.h>
-#include "OneButton.h"
+// #include "OneButton.h"
 
 //LIBRARY UNTUK ACCES POINT
 #include <WiFi.h>
 #include <WebServer.h>
 //#include <WebSocketsServer.h>
-#include <ArduinoOTA.h>
+//#include <ArduinoOTA.h>
 
 //EEPROM AUTO TARTIL
-#define EEPROM_SIZE 512
-#define ADDR_MODE        0
-#define ADDR_PASSWORD    2
+#define EEPROM_SIZE 1000
+//#define ADDR_MODE        0
+//#define ADDR_PASSWORD    2
 
 #define EEPROM_MAGIC 0x42 // Tanda bahwa EEPROM sudah pernah diinisialisasi
 #define EEPROM_ADDR_MAGIC 1000  // Alamat terakhir (disesuaikan agar tidak tabrakan)
 
+#define PASSWORD_LEN 20   // maksimal 15 karakter + '\0'
 //KONFIGURASI WIFI
 char ssid[20]     = "JAM_PANEL";
-char password[20] = "00000000";
+char password[PASSWORD_LEN] = "00000000";
+
+bool autoTartilEnable = true;
+bool voiceClock = true;
 
 const char* otaSsid = "KELUARGA02";
 const char* otaPass = "khusnul23";
@@ -38,24 +42,23 @@ const char* otaHost = "SERVER";
 
 //OBJEK WEB SERVER
 WebServer server(80);
-//WebSocketsServer webSocket(81);
 
 IPAddress local_IP(192, 168, 2, 1);
 IPAddress gateway(192, 168, 2, 1);
 IPAddress subnet(255, 255, 255, 0);
 
 //OBJEK dfPlayer
-#define dfSerial Serial1
+#define dfSerial Serial2
 DFRobotDFPlayerMini dfplayer;
 
 //PIN IO AUTO TARTIL
 #define RELAY_PIN        27
-#define BUTTON_UP        32
-#define BUTTON_DOWN      33
+// #define BUTTON_UP        32
+// #define BUTTON_DOWN      33
 #define RUN_LED          13
 
-OneButton UP(BUTTON_UP, false);
-OneButton DOWN(BUTTON_DOWN, false);
+// OneButton UP(BUTTON_UP, false);
+// OneButton DOWN(BUTTON_DOWN, false);
 
 //VARIABEL PARAMETER UNTUK AUTO TARTIL
 #define HARI_TOTAL  8 // 7 hari + SemuaHari (index ke-7)
@@ -131,32 +134,6 @@ void getData(String input) {
   Serial.println(input);
 }
 
-/*/
-void webSocketEvent(uint8_t num, WStype_t type, uint8_t * payload, size_t length) {
-  switch (type) {
-    case WStype_CONNECTED:
-      clientReady[num] = false;
-      break;
-    case WStype_DISCONNECTED:
-      clientReady[num] = false;
-      break;
-    case WStype_TEXT: {
-      String msg = String((char*)payload);
-      if (msg == "CLIENT_READY") {
-        clientReady[num] = true;
-      } else if (msg == "restart") {
-        getData(msg + "=1");
-        delay(500);
-        ESP.restart();
-      } else if (msg == "jadwal") {
-        getData(msg + "=1");
-      }else {
-        getData(msg);
-      }
-      break;
-    }
-  }
-}*/
 
 void handleSetTime() {
   String data = "";
@@ -289,13 +266,25 @@ void handleSetTime() {
   }
   if (server.hasArg("mode")) {
     data = server.arg("mode"); // Atur status mode
-    EEPROM.write(ADDR_MODE, data.toInt());
-    EEPROM.commit();
+    // EEPROM.write(ADDR_MODE, data.toInt());
+    // EEPROM.commit();
     data = "mode=" + data;
     getData(data);
     server.send(200, "text/plain","OK");// (stateBuzzer) ? "Suara Diaktifkan" : "Suara Dimatikan");
     delay(500);
     ESP.restart();
+  }
+  if (server.hasArg("At")) {
+    data = server.arg("At"); //ON/OFF AUTO TARTIL
+    autoTartilEnable = data;
+    server.send(200, "text/plain","OK");// 
+    saveToEEPROM();
+  }
+  if (server.hasArg("Vc")) {
+    data = server.arg("Vc"); //ON/OFF VOICE CLOCK
+    voiceClock = data;
+    server.send(200, "text/plain","OK");// 
+    saveToEEPROM();
   }
    if (server.hasArg("PLAY")) {//
     data = server.arg("PLAY"); // Atur status play
@@ -364,25 +353,13 @@ void handleSetTime() {
  
   if (server.hasArg("newPassword")) {
       data = server.arg("newPassword");
-      data = "newPassword=" + data;
-      //Serial.println(data);
-      getData(data);
+      data.toCharArray(password, data.length() + 1);
+      saveToEEPROM();
       server.send(200, "text/plain","OK");// "Password WiFi diupdate");
     } 
   data="";
   //EEPROM.commit();
 }
-
-/*void kirimDataKeClient(String data) {
-
-  for (uint8_t i = 0; i < 5; i++) {
-    if (clientReady[i] && webSocket.clientIsConnected(i)) {
-      webSocket.sendTXT(i, data);
-    } else {
-      clientReady[i] = false;
-    }
-  }
-}*/
 
 int getIntPart(String &s, int &pos) {
   int comma = s.indexOf(',', pos);
@@ -399,32 +376,33 @@ void AP_init() {
 
   server.on("/setPanel", handleSetTime);
   server.begin();
-  //webSocket.begin();
-//  webSocket.onEvent(webSocketEvent);
+ 
 }
 
 
 
 void setup() {
+  EEPROM.begin(EEPROM_SIZE);//
   digitalWrite(RELAY_PIN, HIGH); // Awal mati
   pinMode(RUN_LED, OUTPUT);
   pinMode(RELAY_PIN, OUTPUT);
   
-  UP.attachClick(readUp);
-  DOWN.attachClick(readDown);
+  // UP.attachClick(readUp);
+  // DOWN.attachClick(readDown);
   
   Serial.begin(9600);
-  dfSerial.begin(9600);
-  delay(1000);
-  if (!dfplayer.begin(dfSerial)) {
+  dfSerial.begin(9600, SERIAL_8N1, /*rx =*/16, /*tx =*/17);
+ 
+  if (!dfplayer.begin(dfSerial,/*isACK = */true, /*doReset = */true)) {
     Serial.println("DFPlayer tidak terdeteksi!");
-    //while (1);
+    while (1);
   }
+  loadFromEEPROM();
+  delay(1000);
   AP_init();
   dfplayer.enableDAC(); // Pakai output DAC (line out)
   Serial.println("Sistem Auto Tartil Siap.");
-  //loadFromEEPROM();
-  delay(1000);
+  delay(500);
   dfplayer.volume(volumeDFPlayer);
 }
 
@@ -441,14 +419,16 @@ void loop() {
   cekSelesaiManual();
   getStatusRun();
   checkHourlyChime();
-  UP.tick();
-  DOWN.tick();
+  // UP.tick();
+  // DOWN.tick();
   
   
 }
 
 // --- Fungsi cek bunyi jam & setengah jam ---
 void checkHourlyChime() {
+  if(!voiceClock) return;
+
  static int lastHalfPlay = -1;
 
   // Bunyi jam tepat
@@ -563,12 +543,14 @@ if (data.startsWith("PLAY:")) {
   if (folder >= 1 && folder < 12 && file >= 1 && file < MAX_FILE) {
     uint16_t durasi = durasiTartil[folder-1][file];  // ambil dari array
     if (durasi > 0) {
+      //delay(1000);
+      dfplayer.volume(volumeDFPlayer);
       dfplayer.play(file);
-      delay(100);
+      //delay(100);
       //============ DEBUG =============//
-      Serial.print("Memutar manual: folder "); Serial.print(folder);
-      Serial.print(", file "); Serial.print(file);
-      Serial.print(", durasi "); Serial.print(durasi); Serial.println(" detik");
+      // Serial.print("Memutar manual: folder "); Serial.print(folder);
+      // Serial.print(", file "); Serial.print(file);
+      // Serial.print(", durasi "); Serial.print(durasi); Serial.println(" detik");
 
       digitalWrite(RELAY_PIN, LOW);//relay NYALA
       tartilCounter         = 0;
@@ -593,6 +575,8 @@ if (data.startsWith("PLAD:")) {
 //    Serial.print("file "); Serial.print(file); Serial.print(" ");
 //    Serial.print(durasi); Serial.println(" detik");
     if (durasi > 0) {
+      //delay(500);
+      dfplayer.volume(volumeDFPlayer);
       dfplayer.play(file);
       digitalWrite(RELAY_PIN, LOW);//relay NYALA
       adzanCounter         = 0;
@@ -737,7 +721,7 @@ uint16_t getDurasiAdzan(int file) {
 }
 
 void cekDanPutarSholatNonBlocking() {
-  if (tartilSedangDiputar || adzanSedangDiputar || sudahEksekusi) return;
+  if (tartilSedangDiputar || adzanSedangDiputar || sudahEksekusi || !autoTartilEnable) return;
 
   uint32_t detikSekarang = hour() * 3600UL + minute() * 60UL + second();  // cukup pakai uint16_t
 
@@ -791,7 +775,7 @@ void cekDanPutarSholatNonBlocking() {
       Serial.println("triggerDetik: " + String(triggerDetik));
       Serial.println("detikSekarang: " + String(detikSekarang));
       //================================/*/
-      
+      dfplayer.volume(volumeDFPlayer);
       digitalWrite(RELAY_PIN, LOW);//relay NYALA
       currentCfg = &cfg;
       lastTriggerMillis = millis();
@@ -944,7 +928,7 @@ void setLED(uint8_t brightness) {
   analogWrite(RUN_LED, brightness);
 }
 
-void readUp(){
+/*void readUp(){
   volumeDFPlayer < 25? volumeDFPlayer++ : volumeDFPlayer=25;
   Serial.println("volume up=" + String(volumeDFPlayer));
   dfplayer.volume(volumeDFPlayer);
@@ -956,7 +940,7 @@ void readDown(){
   Serial.println("volume down=" + String(volumeDFPlayer));
   dfplayer.volume(volumeDFPlayer);
   saveToEEPROM();
-}
+}*/
 
 void saveToEEPROM() {
   //Serial.println("Menyimpan data ke EEPROM...");
@@ -990,7 +974,20 @@ void saveToEEPROM() {
     EEPROM.write(addr++, menitSholat[i]);
   }
 
- // EEPROM.write(addr++, EEPROM_MAGIC); // simpan MAGIC di akhir
+ /* =========================
+     TAMBAHAN BARU (TANPA
+     MERUBAH STRUKTUR LOGIKA)
+     ========================= */
+
+  // Simpan status Auto Tartil (ON/OFF)
+  EEPROM.write(addr++, autoTartilEnable ? 1 : 0);
+
+  EEPROM.write(addr++, voiceClock ? 1 : 0);
+
+  // Simpan password
+  for (int i = 0; i < PASSWORD_LEN; i++) {
+    EEPROM.write(addr++, password[i]);
+  }
 
 #if defined(ESP8266) || defined(ESP32)
   EEPROM.commit();  // WAJIB untuk ESP
@@ -1037,8 +1034,8 @@ void loadFromEEPROM() {
       EEPROM.get(addr, durasiTartil[f][i]);
       addr += sizeof(uint16_t);  // perbaikan: harus cocok dengan penyimpanan
       //============ DEBUG =============//
-//    Serial.print("Tartil["); Serial.print(f); Serial.print("]["); Serial.print(i);
-//    Serial.print("] = "); Serial.println(durasiTartil[f][i]);
+  //  Serial.print("Tartil["); Serial.print(f); Serial.print("]["); Serial.print(i);
+  //  Serial.print("] = "); Serial.println(durasiTartil[f][i]);
       //================================//
     }
   }
@@ -1046,17 +1043,38 @@ void loadFromEEPROM() {
   EEPROM.get(addr, volumeDFPlayer);
   addr += sizeof(volumeDFPlayer);
   //============ DEBUG =============//
-  //Serial.println("VOL:" + String(volumeDFPlayer));
+  // Serial.println("VOL:" + String(volumeDFPlayer));
   //================================//
   
   for (int i = 0; i < WAKTU_TOTAL; i++) {
     EEPROM.get(addr, jamSholat[i]); addr += sizeof(uint8_t);
     EEPROM.get(addr, menitSholat[i]); addr += sizeof(uint8_t);
     //============ DEBUG =============//
-//    Serial.print("jamSholat["); Serial.print(i);
-//    Serial.print("] = "); Serial.println(jamSholat[i]);
-//    Serial.print("menitSholat["); Serial.print(i);
-//    Serial.print("] = "); Serial.println(menitSholat[i]);
+  //  Serial.print("jamSholat["); Serial.print(i);
+  //  Serial.print("] = "); Serial.println(jamSholat[i]);
+  //  Serial.print("menitSholat["); Serial.print(i);
+  //  Serial.print("] = "); Serial.println(menitSholat[i]);
     //================================//
   }
+
+  /* =========================
+     TAMBAHAN BARU
+     ========================= */
+
+  // Baca status Auto Tartil
+  autoTartilEnable = EEPROM.read(addr++) == 1;
+  // Serial.print("autoTartilEnable:");
+  // Serial.println(autoTartilEnable);
+
+  voiceClock = EEPROM.read(addr++) == 1;
+  // Serial.print("voiceClock:");
+  // Serial.println(voiceClock);
+
+  // Baca password
+  for (int i = 0; i < PASSWORD_LEN; i++) {
+    password[i] = EEPROM.read(addr++);
+  }
+  password[PASSWORD_LEN - 1] = '\0'; // safety null-terminator
+  // Serial.print("password:");
+  // Serial.println(password);
 }
