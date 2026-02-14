@@ -308,7 +308,7 @@ void handleSetTime() {
     server.send(200, "text/plain","OK");// (stateBuzzer) ? "Suara Diaktifkan" : "Suara Dimatikan");
   }
    if (server.hasArg("STOP")) {
-    data = "STOP";;
+    data = "STOP";
     parseData(data);
     //getData(data);
     server.send(200, "text/plain","OK");// (stateBuzzer) ? "Suara Diaktifkan" : "Suara Dimatikan");

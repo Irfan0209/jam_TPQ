@@ -2,17 +2,18 @@
 void dwMrq(const char* msg, int Speed, int dDT,int fontt) //running teks ada jam nya
   { 
     static uint16_t   x; 
+    static uint16_t fullScroll = 0;
     if(adzan) return;
-    if (reset_x !=0) { x=0; reset_x = 0;}      
+    if (reset_x !=0) { x=0; reset_x = 0; fullScroll = 0;}      
 
     uint32_t          Tmr = millis();
     static uint32_t lss=0;
-    static uint16_t fullScroll = 0;
+    
     
      
     if (fullScroll == 0) { // Hitung hanya sekali
        fType(fontt);
-       fullScroll = Disp.textWidth(msg) + DWidth ; 
+       (show == ANIM_BIG)? fullScroll = Disp.textWidth(msg) + DWidth + 20 : fullScroll = Disp.textWidth(msg) + DWidth ; 
     }   
     
     
@@ -23,6 +24,7 @@ void dwMrq(const char* msg, int Speed, int dDT,int fontt) //running teks ada jam
         else {
           RtcDateTime now = Rtc.GetDateTime();
           if(show==ANIM_JAM){show=ANIM_DATE; Serial.println("TIME:" + String(now.Hour()) + "," + String(now.Minute()) + "," + String(now.Second()) + "," + String(now.DayOfWeek()));}
+          else if(show==ANIM_BIG){show=ANIM_BIG; Serial.println("TIME:" + String(now.Hour()) + "," + String(now.Minute()) + "," + String(now.Second()) + "," + String(now.DayOfWeek()));}
          // else if(show==ANIM_BIG){show=ANIM_DATE;}
           x = 0; 
           fullScroll = 0;
@@ -61,7 +63,7 @@ void drawGreg_TS(int y)   // Draw Time
   {
     RtcDateTime now = Rtc.GetDateTime();
     char  Buff[8];
-    sprintf(Buff,"%02d:%02d",now.Hour(),now.Minute());
+    sprintf(Buff,(now.Second() % 2)?"%02d:%02d":"%02d %02d",now.Hour(),now.Minute());
     dwCtr(0,y,Buff);
     DoSwap = true;
   }
@@ -189,6 +191,15 @@ void animasiJadwalSholat() {
   static uint8_t s = 0, s1 = 0;
   static bool run = false;
 
+  if(reset_x != 0){ 
+      y = 0;
+      y1 = 0;
+      s = 0;
+      s1 = 0;
+      reset_x = 0;
+  }
+
+  
   static uint32_t lsRn_y1 = 0;
   static uint32_t lsRn_y = 0;
   static uint32_t tHold = 0;
@@ -236,7 +247,7 @@ void animasiJadwalSholat() {
   if (y == 9 && s == 0 && tHold == 0) {
     tHold = millis();
   }
-  if (tHold > 0 && (millis() - tHold > 1000)) {
+  if (tHold > 0 && (millis() - tHold > 800)) {
     s = 1;     // mulai keluar
     tHold = 0; // reset timer
   }
@@ -290,28 +301,29 @@ void drawAzzan()
         lsRn = Tmr;
         if (!(ct & 1))  // Lebih cepat dibandingkan ct % 2 == 0
         {
-            fType(0);
+            fType(1);
             dwCtr(1, 0, "ADZAN");
-            fType(3);
-            dwCtr(1, 9, sholat);
+            fType(0);
+            dwCtr(1, 8, sholat);
             Buzzer(1);
-            DoSwap = true;
+            
         }
         else
         {
             Buzzer(0);
-            //Disp.clear();
         }
         ct++;
+        DoSwap = true;
     }
     
     if ((Tmr - lsRn) > 1500 && (ct > limit))
     {
         adzan = 0;
-        show = ANIM_JAM;
+        (modeShowBig)? show = ANIM_BIG : show = ANIM_JAM;
         Disp.clear();
         ct = 0;
         Buzzer(0);
+        sholatNow = -1;
     }
 }
 

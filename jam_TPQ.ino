@@ -57,12 +57,9 @@
 #define BUZZ    D4 
 
 #define Font0 Font4x6
-#define Font3 BigNumber
-//#define Font2 Font3x5
 #define Font1 SystemFont5x7
-//#define Font4 KecNumber
+#define Font3 BigNumber
 #define Font5 EMSans8x16
-//#define Font6 Calibri14
 #define Font7 SystemFont5x7
 
 // Pengaturan hotspot WiFi dari ESP8266
@@ -109,7 +106,7 @@ uint8_t    sholatNow     = -1;
 bool       reset_x       = 0; 
 
 /*======library tambahan=======*/
-bool       flagAnim = false;
+bool       modeShowBig = false;
 uint8_t    speedDate      = 40; // Kecepatan default date
 uint8_t    speedText1     = 40; // Kecepatan default text  
 uint8_t    speedText2     = 40;
@@ -172,6 +169,7 @@ Show show = ANIM_JAM;
 #define ADDR_MODE        256
 #define ADDR_SPEEDNAME   258
 #define ADDR_NAME        260
+#define ADDR_SHOW        360
 
 
 void saveStringToEEPROM(int startAddr, String data, int maxLength) {
@@ -261,9 +259,9 @@ void setup() {
   delay(1000);
   Disp_init_esp();
   Serial.println("PANEL_OK");
-  
+  modeShowBig? show=ANIM_BIG : show=ANIM_JAM;
  
-  delay(1000);
+  delay(500);
 for(int i = 0; i < 4; i++)
  {
       Buzzer(1);
@@ -284,10 +282,10 @@ void loop() {
  
   switch (show) {
     case ANIM_BIG :
-      dwMrq(text1,60,3,1);
+      dwMrq(text1,speedText2,3,5);
       break;
     case ANIM_JAM :
-      dwMrq(text1,40,2,1);
+      dwMrq(text1,speedText1,2,1);
       break;
     case ANIM_DATE :
       runningInfoDanDate();
@@ -575,6 +573,13 @@ void getData(String input) {
       ESP.restart();
     }
 
+    else if (key == "Ms") {
+      modeShowBig = value.toInt();
+      EEPROM.write(ADDR_SHOW, modeShowBig);
+      reset_x = 1;
+      modeShowBig? show=ANIM_BIG : show=ANIM_JAM;
+    }
+
     else if (key == "status") {
       int state = value.toInt();
       if(state) {
@@ -734,6 +739,10 @@ void loadFromEEPROM() {
   stateMode = EEPROM.read(ADDR_MODE);
 //  Serial.print("mode: ");
 //  Serial.println(stateMode);
+
+  modeShowBig = EEPROM.read(ADDR_SHOW);
+//  Serial.print("modeShowBig: ");
+//  Serial.println(modeShowBig);
 
   for (int i = 0; i < 8; i++) {
     password[i] = EEPROM.read(ADDR_PASSWORD + i);
