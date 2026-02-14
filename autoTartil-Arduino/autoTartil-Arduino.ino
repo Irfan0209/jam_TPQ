@@ -274,6 +274,12 @@ void handleSetTime() {
     delay(500);
     ESP.restart();
   }
+  if (server.hasArg("Ms")) {
+    data = server.arg("Ms"); // Atur status mode show
+    data = "Ms=" + data;
+    getData(data);
+    server.send(200, "text/plain","OK");// (mode show) 
+  }
   if (server.hasArg("At")) {
     data = server.arg("At"); //ON/OFF AUTO TARTIL
     autoTartilEnable = data;
@@ -348,6 +354,8 @@ void handleSetTime() {
     server.send(200, "text/plain","OK");// (stateBuzzer) ? "Suara Diaktifkan" : "Suara Dimatikan");
   }
   if (server.hasArg("status")) {
+    data = "status=1" ;
+    getData(data);
     server.send(200, "text/plain", "CONNECTED");
   }
  
@@ -389,7 +397,7 @@ void setup() {
   
   // UP.attachClick(readUp);
   // DOWN.attachClick(readDown);
-  
+  delay(1000);
   Serial.begin(9600);
   dfSerial.begin(9600, SERIAL_8N1, /*rx =*/16, /*tx =*/17);
  
@@ -402,7 +410,7 @@ void setup() {
   AP_init();
   dfplayer.enableDAC(); // Pakai output DAC (line out)
   Serial.println("Sistem Auto Tartil Siap.");
-  delay(500);
+  delay(50);
   dfplayer.volume(volumeDFPlayer);
 }
 
