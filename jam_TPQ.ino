@@ -27,32 +27,25 @@
   -------------------------------------------------------------------------------------*/
 #define DISPLAYS_WIDE 1
 #define DISPLAYS_HIGH 1
-//#include <SoftwareSerial.h>
 #include <DMDESP.h>
 //#include <ESP8266WiFi.h>
 //#include <WiFiManager.h>
-//////////
-//#include <ESP8266mDNS.h>
-//#include <WiFiUdp.h>
+
 //#include <ArduinoOTA.h>
 
 #define EEPROM_SIZE 512
 
-//#include <font/KecNumber.h>
+
 #include <C:\Users\irfan\Documents\Arduino\libraries\DMDESP-master\fonts/BigNumber.h>
 #include <C:\Users\irfan\Documents\Arduino\libraries\DMDESP-master\fonts/Font4x6.h>
 #include <C:\Users\irfan\Documents\Arduino\libraries\DMDESP-master\fonts/SystemFont5x7.h>
-//#include <font/Font3x5.h>
 #include <C:\Users\irfan\Documents\Arduino\libraries\DMDESP-master\fonts/EMSans8x16.h>
-//#include <font/Calibri14.h>  
 #include <C:\Users\irfan\Documents\Arduino\libraries\DMDESP-master\fonts/Mono5x7.h>
 
 #include <Wire.h>
 #include <RtcDS3231.h>
 #include <Prayer.h>
 #include <ESP_EEPROM.h>
-//#include <avr/pgmspace.h>
-#include <MemoryFree.h>
 
 #define BUZZ    D4 
 
@@ -67,8 +60,6 @@ char ssid[20]     = "JAM_PANEL_TPQ";
 char password[20] = "00000000";
 
 const char* host = "JAM_PANEL_5";
-
-//SoftwareSerial dfSerial(10,11); // RX, TX ke DFPlayer
 
 //create object
 RtcDS3231<TwoWire> Rtc(Wire);
@@ -91,7 +82,7 @@ struct Config {
   double latitude = -7.364057;
   double longitude = 112.646222;
   uint8_t zonawaktu = 7;
-  int16_t Correction = -1; //Koreksi tanggal hijriyah, -1 untuk mengurangi, 0 tanpa koreksi, 1 untuk menambah
+  int Correction = -1; //Koreksi tanggal hijriyah, -1 untuk mengurangi, 0 tanpa koreksi, 1 untuk menambah
 };
 Config config;
 
@@ -557,6 +548,7 @@ void getData(String input) {
       config.Correction = value.toInt();
       EEPROM.write(ADDR_CORRECTION, config.Correction & 0xFF);
       EEPROM.write(ADDR_CORRECTION + 1, (config.Correction >> 8) & 0xFF);
+      Serial.println("coreksi:" + String(config.Correction));
 }
 
 
@@ -602,33 +594,12 @@ void getData(String input) {
       if(state) {
         Buzzer(1); 
         Serial.println("RESTART_OK"); 
-//        stateMode = 0;
-//        EEPROM.write(ADDR_MODE, stateMode); 
+        stateMode = 0;
+        EEPROM.write(ADDR_MODE, stateMode); 
         delay(1000);
         ESP.restart();
       }
     }
-
-//    else if (key == "VOL") {
-//    byte val = value.toInt();
-//    setVolume(val);
-//    }
-//    
-//    else if (key == "volume down") {
-//    byte val = value.toInt();
-//    setVolume(val);
-//    }
-
-//    else if (key == "newPassword") {
-//      if (value.length() == 8) {
-//        value.toCharArray(password, value.length() + 1);
-//        saveStringToEEPROM(ADDR_PASSWORD, value, 8);
-//        //server.send(200, "text/plain", "Password WiFi diupdate");
-//        Buzzer(1);
-//        delay(500);
-//        ESP.restart();
-//      }
-//    }
 
     EEPROM.commit(); // Penting! simpan perubahan
   }

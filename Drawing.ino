@@ -168,6 +168,7 @@ void runningInfoDanDate() {
     xDate = 0;
     infoDone = false;
     dateDone = false;
+    initDone = false;
     show = ANIM_SHOLAT;   // animasi berikutnya
   }
 }

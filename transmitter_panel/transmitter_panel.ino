@@ -1,63 +1,38 @@
 // ESP8266 Server with OTA Upload Mode
 #include <ESP8266WiFi.h>
 #include <ESP8266WebServer.h>
-#include <WebSocketsServer.h>
 #include <ESP_EEPROM.h>
-#include <ArduinoOTA.h>
 
 #define EEPROM_SIZE 512
 #define ADDR_MODE        0
 #define ADDR_PASSWORD    2
 
+#define LED_WIFI 2
+
+
 char ssid[20]     = "JAM_PANEL";
 char password[20] = "00000000";
 
-const char* otaSsid = "KELUARGA02";
-const char* otaPass = "khusnul23";
-const char* otaHost = "SERVER";
+//const char* otaSsid = "KELUARGA02";
+//const char* otaPass = "khusnul23";
+//const char* otaHost = "SERVER";
+
+unsigned long lastWiFiAttempt = 0;
+const unsigned long wifiRetryInterval = 5000;
+bool wifiConnected = false;
 
 ESP8266WebServer server(80);
-WebSocketsServer webSocket(81);
 
 IPAddress local_IP(192, 168, 2, 1);
 IPAddress gateway(192, 168, 2, 1);
 IPAddress subnet(255, 255, 255, 0);
 
-bool clientReady[5] = { false, false, false, false, false };
-bool modeOTA = false;
-
-unsigned long lastTimeSend = 0;
-const unsigned long intervalSendTime = 60000; // 1 menit
+//unsigned long lastTimeSend = 0;
+//const unsigned long intervalSendTime = 60000; // 1 menit
 
 void getData(String input) {
   Serial.println(input);
   // Di sini bisa tambahkan pengolahan data lebih lanjut
-}
-
-void webSocketEvent(uint8_t num, WStype_t type, uint8_t * payload, size_t length) {
-  switch (type) {
-    case WStype_CONNECTED:
-      clientReady[num] = false;
-      break;
-    case WStype_DISCONNECTED:
-      clientReady[num] = false;
-      break;
-    case WStype_TEXT: {
-      String msg = String((char*)payload);
-      if (msg == "CLIENT_READY") {
-        clientReady[num] = true;
-      } else if (msg == "restart") {
-        getData(msg + "=1");
-        delay(500);
-        ESP.restart();
-      } else if (msg == "jadwal") {
-        getData(msg + "=1");
-      }else {
-        getData(msg);
-      }
-      break;
-    }
-  }
 }
 
 void handleSetTime() {
@@ -176,7 +151,7 @@ void handleSetTime() {
   }
   if (server.hasArg("CoHi")) {
     data = server.arg("CoHi"); // Atur latitude    data = "CoHi=" + data;
-
+    data = "CoHi=" + data;
     //Serial.println(data);
     getData(data);
     server.send(200, "text/plain", "OK");//"coreksi hijriah diupdate");
@@ -189,16 +164,35 @@ void handleSetTime() {
     getData(data);
     server.send(200, "text/plain","OK");// (stateBuzzer) ? "Suara Diaktifkan" : "Suara Dimatikan");
   }
-  if (server.hasArg("mode")) {
-    data = server.arg("mode"); // Atur status mode
-    EEPROM.write(ADDR_MODE, data.toInt());
-    EEPROM.commit();
-    data = "mode=" + data;
-    kirimDataKeClient(data);
+//  if (server.hasArg("mode")) {
+//    data = server.arg("mode"); // Atur status mode
+//    // EEPROM.write(ADDR_MODE, data.toInt());
+//    // EEPROM.commit();
+//    data = "mode=" + data;
+//    getData(data);
+//    server.send(200, "text/plain","OK");// (stateBuzzer) ? "Suara Diaktifkan" : "Suara Dimatikan");
+//    delay(500);
+//    ESP.restart();
+//  }
+  if (server.hasArg("Ms")) {
+    data = server.arg("Ms"); // Atur status mode show
+    data = "Ms=" + data;
     getData(data);
-    server.send(200, "text/plain","OK");// (stateBuzzer) ? "Suara Diaktifkan" : "Suara Dimatikan");
-    delay(500);
-    ESP.restart();
+    server.send(200, "text/plain","OK");// (mode show) 
+  }
+  if (server.hasArg("At")) {
+    data = server.arg("At"); //ON/OFF AUTO TARTIL
+    //autoTartilEnable = data;
+    getData(data);
+    server.send(200, "text/plain","OK");// 
+   // saveToEEPROM();
+  }
+  if (server.hasArg("Vc")) {
+    data = server.arg("Vc"); //ON/OFF VOICE CLOCK
+    //voiceClock = data;
+    getData(data);
+    server.send(200, "text/plain","OK");// 
+    //saveToEEPROM();
   }
    if (server.hasArg("PLAY")) {//
     data = server.arg("PLAY"); // Atur status play
@@ -207,8 +201,8 @@ void handleSetTime() {
     byte folder = getIntPart(data,idx);
     byte file   = getIntPart(data,idx);
     data = "PLAY:" + String(folder) + "," + String(file);
-    kirimDataKeClient(data);
-    //getData(data);
+   // parseData(data);
+    getData(data);
     server.send(200, "text/plain","OK");// (stateBuzzer) ? "Suara Diaktifkan" : "Suara Dimatikan");
   }
   if (server.hasArg("PLAD")) {//
@@ -217,26 +211,28 @@ void handleSetTime() {
     int idx = 0;
     byte file   = getIntPart(data,idx);
     data = "PLAD:" + String(file);
-    kirimDataKeClient(data);
-    //getData(data);
+    //parseData(data);
+    getData(data);
     server.send(200, "text/plain","OK");// (stateBuzzer) ? "Suara Diaktifkan" : "Suara Dimatikan");
   }
    if (server.hasArg("STOP")) {
-    data = "STOP";;
-    kirimDataKeClient(data);
-    //getData(data);
+    data = "STOP";
+    //parseData(data);
+    
+    getData(data);
     server.send(200, "text/plain","OK");// (stateBuzzer) ? "Suara Diaktifkan" : "Suara Dimatikan");
   }
   if (server.hasArg("VOL")) {
     data = server.arg("VOL"); // Atur status mode
     data = "VOL:" + data;
-    kirimDataKeClient(data);
-    //getData(data);
+    //parseData(data);
+    getData(data);
     server.send(200, "text/plain","OK");// (stateBuzzer) ? "Suara Diaktifkan" : "Suara Dimatikan");
   }
   if (server.hasArg("HR")) {
     data = server.arg("HR"); // Ambil argumen HR
-    kirimDataKeClient("HR:" + data); // (Opsional) Kirim juga ke semua client via WebSocket
+    //parseData("HR:" + data); // (Opsional) Kirim juga ke semua client via WebSocket
+    getData(data);
     server.send(200, "text/plain", "OK");
   }
   if (server.hasArg("NAMAFILE")) {//
@@ -247,8 +243,8 @@ void handleSetTime() {
     byte file   = getIntPart(data,idx);
     int durasi = getIntPart(data,idx);
     data = "NAMAFILE:" + String(folder) + "," + String(file)+ "," + String(durasi);
-    kirimDataKeClient(data);
-    //getData(data);
+    //parseData(data);
+    getData(data);
     server.send(200, "text/plain","OK");// (stateBuzzer) ? "Suara Diaktifkan" : "Suara Dimatikan");
   }
   if (server.hasArg("ADZAN")) {//
@@ -257,25 +253,26 @@ void handleSetTime() {
     byte file = getIntPart(data,idx);
     int durasi   = getIntPart(data,idx);
     data = "ADZAN:" + String(file) + "," + String(durasi);
-    kirimDataKeClient(data);
-    //getData(data);
+    //parseData(data);
+    getData(data);
     server.send(200, "text/plain","OK");// (stateBuzzer) ? "Suara Diaktifkan" : "Suara Dimatikan");
   }
   if (server.hasArg("status")) {
+    data = "status=1" ;
+    getData(data);
     server.send(200, "text/plain", "CONNECTED");
   }
  
   if (server.hasArg("newPassword")) {
       data = server.arg("newPassword");
-      data = "newPassword=" + data;
-      //Serial.println(data);
+      data.toCharArray(password, data.length() + 1);
       getData(data);
+      //saveToEEPROM();
       server.send(200, "text/plain","OK");// "Password WiFi diupdate");
     } 
   data="";
   //EEPROM.commit();
 }
-
 
 void AP_init() {
   WiFi.mode(WIFI_AP);
@@ -285,41 +282,7 @@ void AP_init() {
 
   server.on("/setPanel", handleSetTime);
   server.begin();
-  webSocket.begin();
-  webSocket.onEvent(webSocketEvent);
-}
 
-void ONLINE() {
-  WiFi.mode(WIFI_STA);
-  WiFi.begin(otaSsid, otaPass);
-
-  while (WiFi.waitForConnectResult() != WL_CONNECTED) {
-    //Serial.println("OTA WiFi gagal. Rebooting...");
-    delay(5000);
-    ESP.restart();
-  }
-
-  ArduinoOTA.setHostname(otaHost);
- 
-  ArduinoOTA.onEnd([]() {
-    Serial.println("restart=1");
-    delay(1000);
-    ESP.restart();
-  });
-  
-  ArduinoOTA.begin();
-  //Serial.println("OTA Ready");
-}
-
-void kirimDataKeClient(String data) {
-
-  for (uint8_t i = 0; i < 5; i++) {
-    if (clientReady[i] && webSocket.clientIsConnected(i)) {
-      webSocket.sendTXT(i, data);
-    } else {
-      clientReady[i] = false;
-    }
-  }
 }
 
 void cekSerialMonitor() {
@@ -328,11 +291,6 @@ void cekSerialMonitor() {
     input.trim();
     //Serial.print("[Serial] Kirim ke semua client: ");
     //Serial.println(input);
-    for (uint8_t i = 0; i < 5; i++) {
-      if (clientReady[i] && webSocket.clientIsConnected(i)) {
-        webSocket.sendTXT(i, input);
-      }
-    }
   }
 }
 
@@ -347,31 +305,44 @@ int getIntPart(String &s, int &pos) {
 void setup() {
   Serial.begin(9600);
   EEPROM.begin(EEPROM_SIZE);
-  modeOTA = EEPROM.read(ADDR_MODE);
+  pinMode(LED_WIFI, OUTPUT);
+  digitalWrite(LED_WIFI, LOW);
+  
+  AP_init();
 
-  if (modeOTA) {
-    EEPROM.write(ADDR_MODE, 0);
-    EEPROM.commit();
-    ONLINE();
-  } else {
-    AP_init();
-  }
 }
 
 void loop() {
-  if (modeOTA) {
-    ArduinoOTA.handle();
-    if (Serial.available()) {
-      String input = Serial.readStringUntil('\n');
-      input.trim();
-      if (input.equalsIgnoreCase("restart")) {
-        delay(1000);
-        ESP.restart();
-      }
-    }
-  } else {
     server.handleClient();
-    webSocket.loop();
     cekSerialMonitor();
-  }
+
+//    if (!wifiConnected && millis() - lastWiFiAttempt >= wifiRetryInterval) {
+//    lastWiFiAttempt = millis();
+//
+//    if (WiFi.status() == WL_CONNECTED) {
+//      wifiConnected = true;
+//    } 
+//  }
+//  digitalWrite(LED_WIFI, (wifiConnected ) ? HIGH : LOW);
+
 }
+
+//void getStatusRun() {
+//  uint32_t now = millis();
+//  if (now - lastWaveMillis >= waveStepDelay) {
+//    lastWaveMillis = now;
+//    updateWaveLED();
+//  }
+//}
+//
+//void updateWaveLED() {
+//  // brightness naik turun dari 0 - 255 - 0
+//  uint8_t brightness = (m_Counter < 128) ? m_Counter * 2 : (255 - m_Counter) * 2;
+//  setLED(brightness);
+//
+//  m_Counter = (m_Counter + 1) % 256;  // loop kembali ke 0 setelah 255
+//}
+//
+//void setLED(uint8_t brightness) {
+//  analogWrite(LED_WIFI, brightness);
+//}

@@ -251,7 +251,7 @@ void handleSetTime() {
   }
   if (server.hasArg("CoHi")) {
     data = server.arg("CoHi"); // Atur latitude    data = "CoHi=" + data;
-
+    data = "CoHi=" + data;
     //Serial.println(data);
     getData(data);
     server.send(200, "text/plain", "OK");//"coreksi hijriah diupdate");
@@ -362,6 +362,7 @@ void handleSetTime() {
   if (server.hasArg("newPassword")) {
       data = server.arg("newPassword");
       data.toCharArray(password, data.length() + 1);
+      getData(data);
       saveToEEPROM();
       server.send(200, "text/plain","OK");// "Password WiFi diupdate");
     } 
