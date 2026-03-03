@@ -1,36 +1,22 @@
-/*
-  Auto Tart.tick();m with Arduino Micro + ESP8266 + DFPlayer Mini
-  --------------------------------------------------------------
-  - ESP8266: menerima konfigurasi dari App Inventor via AP + HTTP GET
-  - Arduino micro: membaca konfigurasi via Serial, menyimpan konfigurasi dalam array
-  - Arduino mengatur jadwal berdasarkan waktu dan memutar rekaman tartil dan adzan
-  - DFPlayer Mini: memainkan file tartil & adzan
-  - Relay: mengaktifkan power amplifier saat audio diputar
-*/
 
 //LIBRARY UNTUK AUTO TARTIL
 #include <DFRobotDFPlayerMini.h>
 #include <EEPROM.h>
-#include <TimeLib.h>
-// #include "OneButton.h"
-
-//LIBRARY UNTUK ACCES POINT
+#include <Wire.h>
+#include <RtcDS3231.h>
+#include <Prayer.h>
 #include <WiFi.h>
 #include <WebServer.h>
-//#include <WebSocketsServer.h>
-//#include <ArduinoOTA.h>
+#include <LiquidCrystal_I2C.h>
 
 //EEPROM AUTO TARTIL
 #define EEPROM_SIZE 1000
-//#define ADDR_MODE        0
-//#define ADDR_PASSWORD    2
 
-#define EEPROM_MAGIC 0x42 // Tanda bahwa EEPROM sudah pernah diinisialisasi
-#define EEPROM_ADDR_MAGIC 1000  // Alamat terakhir (disesuaikan agar tidak tabrakan)
+#define dfSerial Serial2
 
 #define PASSWORD_LEN 20   // maksimal 15 karakter + '\0'
 //KONFIGURASI WIFI
-char ssid[20]     = "JAM_PANEL";
+char ssid[PASSWORD_LEN]     = "JAM_PANEL";
 char password[PASSWORD_LEN] = "00000000";
 
 bool autoTartilEnable = true;
@@ -40,16 +26,23 @@ const char* otaSsid = "KELUARGA02";
 const char* otaPass = "khusnul23";
 const char* otaHost = "SERVER";
 
-//OBJEK WEB SERVER
+//create object
+RtcDS3231<TwoWire> Rtc(Wire);
+RtcDateTime now;
+
+LiquidCrystal_I2C lcd(0x27, 16, 2);
+
+Prayer JWS;
+Hijriyah Hijir;
+
+DFRobotDFPlayerMini dfplayer;
+
 WebServer server(80);
 
 IPAddress local_IP(192, 168, 2, 1);
 IPAddress gateway(192, 168, 2, 1);
 IPAddress subnet(255, 255, 255, 0);
 
-//OBJEK dfPlayer
-#define dfSerial Serial2
-DFRobotDFPlayerMini dfplayer;
 
 //PIN IO AUTO TARTIL
 #define RELAY_PIN        27
@@ -93,10 +86,10 @@ byte tartilIndex = 0;
 
 uint16_t tartilCounter = 0;
 uint16_t targetDurasi = 0;
-unsigned long lastTick = 0;
+uint32_t lastTick = 0;
 
 bool jedaAktif = false;
-unsigned long jedaMulaiMillis = 0;
+uint32_t jedaMulaiMillis = 0;
 
 WaktuConfig *currentCfg = nullptr;
 
@@ -106,7 +99,7 @@ bool adzanSedangDiputar = false;
 uint32_t adzanMulaiMillis = 0;
 uint16_t adzanDurasi = 0;
 
-unsigned long lastAdzanTick = 0;
+uint32_t lastAdzanTick = 0;
 uint16_t adzanCounter = 0;
 uint16_t targetDurasiAdzan = 0;
 
@@ -120,15 +113,30 @@ bool adzanManualSedangDiputar = false;
 
 //variabel untuk led status system
 static uint8_t m_Counter = 0;
-static uint16_t waveStepDelay = 20;  // Delay antar frame LED breathing (ms)
+constexpr uint16_t waveStepDelay = 20;  // Delay antar frame LED breathing (ms)
 static uint32_t lastWaveMillis = 0;
 bool STATUS_MODE = false;
 bool lastStatusMode = !STATUS_MODE;     // agar langsung update saat pertama kali
 bool lastNormalStatus = false;
 uint32_t lastTimeReceived = 0;
-const uint32_t TIMEOUT_INTERVAL = 70000; // 70 detik, lebih dari 1 menit
+constexpr uint32_t TIMEOUT_INTERVAL = 70000; // 70 detik, lebih dari 1 menit
 //===================== END ==========================//
 //bool clientReady[5] = { false, false, false, false, false };
+uint8_t dataIhty[]      = {0,0,0,0,0,0};
+struct Config {
+  uint8_t durasiadzan = 40;
+  uint8_t altitude = 10;
+  double latitude = -7.364057;
+  double longitude = 112.646222;
+  uint8_t zonawaktu = 7;
+  int Correction = -1; //Koreksi tanggal hijriyah, -1 untuk mengurangi, 0 tanpa koreksi, 1 untuk menambah
+};
+Config config;
+
+bool       stateSendSholat = false; 
+String pass;
+bool stateRestart = false;
+int8_t    sholatNow     = -1;
 
 void getData(String input) {
   Serial.println(input);
@@ -136,237 +144,289 @@ void getData(String input) {
 
 
 void handleSetTime() {
-  String data = "";
+  //String data = "";
+  char dataBuffer[250];
+  
    if (server.hasArg("Tm")) {
-    data = server.arg("Tm");
-    data = "Tm=" + data;
-    //Serial.println(data);
-    getData(data);
+    snprintf(dataBuffer, sizeof(dataBuffer), "Tm=%s", server.arg("Tm").c_str());
+    getData(dataBuffer);
     server.send(200, "text/plain", "OK");//"Settingan jam berhasil diupdate");
+    return;
   }
   if (server.hasArg("text")) {
-    data = server.arg("text");
-    data = "text=" + data;
-    //Serial.println(data);
-    getData(data);
+    snprintf(dataBuffer, sizeof(dataBuffer), "text=%s", server.arg("text").c_str());
+    getData(dataBuffer);
     server.send(200, "text/plain", "OK");//"Settingan text berhasil diupdate");
+    return;
   }
   if (server.hasArg("name")) {
-    data = server.arg("name");
-    data = "name=" + data;
-    //Serial.println(data);
-    getData(data);
+    snprintf(dataBuffer, sizeof(dataBuffer), "name=%s", server.arg("name").c_str());
+    getData(dataBuffer);
     server.send(200, "text/plain", "OK");//"Settingan nama berhasil diupdate");
+    return;
   }
   if (server.hasArg("Br")) {
-    data  = server.arg("Br");
-    data = "Br=" + data;
-    //Serial.println(data);
-    getData(data);
+    snprintf(dataBuffer, sizeof(dataBuffer), "Br=%s", server.arg("Br").c_str());
+    getData(dataBuffer);
     server.send(200, "text/plain", "OK");//"Kecerahan berhasil diupdate");
+    return;
   }
   if (server.hasArg("Spdt")) {
-    data = server.arg("Spdt"); // Atur kecepatan date
-    data = "Spdt=" + data;
-    //Serial.println(data);
-    getData(data);
+    snprintf(dataBuffer, sizeof(dataBuffer), "Spdt=%s", server.arg("Spdt").c_str());
+    getData(dataBuffer);
     server.send(200, "text/plain", "OK");//"Kecepatan kalender berhasil diupdate");
+    return;
   }
   if (server.hasArg("Sptx1")) {
-    data = server.arg("Sptx1"); // Atur kecepatan text
-    data = "Sptx1=" + data;
-    //Serial.println(data);
-    getData(data);
+    snprintf(dataBuffer, sizeof(dataBuffer), "Sptx1=%s", server.arg("Sptx1").c_str());
+    getData(dataBuffer);
     server.send(200, "text/plain", "OK");//"Kecepatan info 1 berhasil diupdate");
+    return;
   }
   if (server.hasArg("Sptx2")) {
-    data = server.arg("Sptx2"); // Atur kecepatan text
-    data = "Sptx2=" + data;
-    //Serial.println(data);
-    getData(data);
+    snprintf(dataBuffer, sizeof(dataBuffer), "Sptx2=%s", server.arg("Sptx2").c_str());
+    getData(dataBuffer);
     server.send(200, "text/plain", "OK");//"Kecepatan info 2 berhasil diupdate");
+    return;
+  }
+  if (server.hasArg("Sptx3")) {
+    snprintf(dataBuffer, sizeof(dataBuffer), "Sptx3=%s", server.arg("Sptx3").c_str());
+    getData(dataBuffer);
+    server.send(200, "text/plain", "OK");//"Kecepatan info 2 berhasil diupdate");
+    return;
+  }
+  if (server.hasArg("Sptx4")) {
+    snprintf(dataBuffer, sizeof(dataBuffer), "Sptx4=%s", server.arg("Sptx4").c_str());
+    getData(dataBuffer);
+    server.send(200, "text/plain", "OK");//"Kecepatan info 2 berhasil diupdate");
+    return;
+  }
+  if (server.hasArg("Sptx5")) {
+    snprintf(dataBuffer, sizeof(dataBuffer), "Sptx5=%s", server.arg("Sptx5").c_str());
+    getData(dataBuffer);
+    server.send(200, "text/plain", "OK");//"Kecepatan info 2 berhasil diupdate");
+    return;
   }
   if (server.hasArg("Spnm")) {
-    data = server.arg("Spnm"); // Atur kecepatan text
-    data = "Spnm=" + data;
-   // Serial.println(data);
-    getData(data);
+    snprintf(dataBuffer, sizeof(dataBuffer), "Spnm=%s", server.arg("Spnm").c_str());
+    getData(dataBuffer);
     server.send(200, "text/plain", "OK");//"Kecepatan nama berhasil diupdate");
+    return;
   }
   if (server.hasArg("Iq")) {
-    data = server.arg("Iq"); // Atur koreksi iqomah
-    data = "Iq=" + data;
-    //Serial.println(data);
-    getData(data);
+    snprintf(dataBuffer, sizeof(dataBuffer), "Iq=%s", server.arg("Iq").c_str());
+    getData(dataBuffer);
     server.send(200, "text/plain", "OK");//"iqomah diupdate");
+    return;
   }
   if (server.hasArg("Dy")) {
-    data = server.arg("Dy"); // Atur durasi adzan
-    data = "Dy=" + data;
-    //Serial.println(data);
-    getData(data);
+    snprintf(dataBuffer, sizeof(dataBuffer), "Dy=%s", server.arg("Dy").c_str());
+    getData(dataBuffer);
     server.send(200, "text/plain", "OK");//"displayBlink diupdate");
+    return;
   }
   if (server.hasArg("Kr")) {
-    data = server.arg("Kr"); // Atur koreksi waktu jadwal sholat
-    data = "Kr=" + data;
-    //Serial.println(data);
-    getData(data);
+    snprintf(dataBuffer, sizeof(dataBuffer), "Kr=%s", server.arg("Kr").c_str());
+    getData(dataBuffer);
     server.send(200, "text/plain", "OK");//"Selisih jadwal sholat diupdate");
+    return;
   }
   if (server.hasArg("Lt")) {
-    data = server.arg("Lt"); // Atur latitude
-    data = "Lt=" + data;
-    //Serial.println(data);
-    getData(data);
+    snprintf(dataBuffer, sizeof(dataBuffer), "Lt=%s", server.arg("Lt").c_str());
+    getData(dataBuffer);
     server.send(200, "text/plain", "OK");//"latitude diupdate");
+    return;
   }
   if (server.hasArg("Lo")) {
-    data = server.arg("Lo"); // Atur latitude
-    data = "Lo=" + data;
-    //Serial.println(data);
-    getData(data);
+    snprintf(dataBuffer, sizeof(dataBuffer), "Lo=%s", server.arg("Lo").c_str());
+    getData(dataBuffer);
     server.send(200, "text/plain", "OK");//"longitude diupdate");
+    return;
   }
   if (server.hasArg("Tz")) {
-    data = server.arg("Tz"); // Atur latitude
-    data = "Tz=" + data;
-    //Serial.println(data);
-    getData(data);
+    snprintf(dataBuffer, sizeof(dataBuffer), "Tz=%s", server.arg("Tz").c_str());
+    getData(dataBuffer);
     server.send(200, "text/plain", "OK");//"timezone diupdate");
+    return;
   }
   if (server.hasArg("Al")) {
-    data = server.arg("Al"); // Atur latitude
-    data = "Al=" + data;
-    //Serial.println(data);
-    getData(data);
+    snprintf(dataBuffer, sizeof(dataBuffer), "Al=%s", server.arg("Al").c_str());
+    getData(dataBuffer);
     server.send(200, "text/plain", "OK");//"altitude diupdate");
+    return;
   }
   if (server.hasArg("Da")) { 
-    data = server.arg("Da"); 
-    data = "Da=" + data;
-    //Serial.println(data);
-    getData(data);
+    snprintf(dataBuffer, sizeof(dataBuffer), "Da=%s", server.arg("Da").c_str());
+    getData(dataBuffer);
     server.send(200, "text/plain", "OK");// "durasi adzan diupdate");
+    return;
   }
   if (server.hasArg("CoHi")) {
-    data = server.arg("CoHi"); // Atur latitude    data = "CoHi=" + data;
-    data = "CoHi=" + data;
-    //Serial.println(data);
-    getData(data);
+    snprintf(dataBuffer, sizeof(dataBuffer), "CoHi=%s", server.arg("CoHi").c_str());
+    getData(dataBuffer);
     server.send(200, "text/plain", "OK");//"coreksi hijriah diupdate");
+    return;
   }
 
   if (server.hasArg("Bzr")) {
-    data = server.arg("Bzr"); // Atur status buzzer
-    data = "Bzr=" + data;
-    //Serial.println(data);
-    getData(data);
+    snprintf(dataBuffer, sizeof(dataBuffer), "Bzr=%s", server.arg("Bzr").c_str());
+    getData(dataBuffer);
     server.send(200, "text/plain","OK");// (stateBuzzer) ? "Suara Diaktifkan" : "Suara Dimatikan");
+    return;
+  }
+  if (server.hasArg("bzrClk")) {
+    snprintf(dataBuffer, sizeof(dataBuffer), "bzrClk=%s", server.arg("bzrClk").c_str());
+    getData(dataBuffer);
+    server.send(200, "text/plain","OK");// (stateBuzzer) ? "Suara Diaktifkan" : "Suara Dimatikan");
+    return;
+  }
+  if (server.hasArg("alarm")) {
+    snprintf(dataBuffer, sizeof(dataBuffer), "alarm=%s", server.arg("alarm").c_str());
+    getData(dataBuffer);
+    server.send(200, "text/plain","OK");// (stateBuzzer) ? "Suara Diaktifkan" : "Suara Dimatikan");
+    return;
+  }
+  if (server.hasArg("alarmOn")) {
+    snprintf(dataBuffer, sizeof(dataBuffer), "alarmOn=%s", server.arg("alarmOn").c_str());
+    getData(dataBuffer);
+    server.send(200, "text/plain","OK");// (stateBuzzer) ? "Suara Diaktifkan" : "Suara Dimatikan");
+    return;
+  }
+  if (server.hasArg("alarmOff")) {
+    snprintf(dataBuffer, sizeof(dataBuffer), "alarmOff=%s", server.arg("alarmOff").c_str());
+    getData(dataBuffer);
+    server.send(200, "text/plain","OK");// (stateBuzzer) ? "Suara Diaktifkan" : "Suara Dimatikan");
+    return;
   }
   if (server.hasArg("mode")) {
-    data = server.arg("mode"); // Atur status mode
-    // EEPROM.write(ADDR_MODE, data.toInt());
-    // EEPROM.commit();
-    data = "mode=" + data;
-    getData(data);
+    snprintf(dataBuffer, sizeof(dataBuffer), "mode=%s", server.arg("mode").c_str());
+    getData(dataBuffer);
+    parseData(dataBuffer);
     server.send(200, "text/plain","OK");// (stateBuzzer) ? "Suara Diaktifkan" : "Suara Dimatikan");
-    delay(500);
-    ESP.restart();
+    return;
   }
-  if (server.hasArg("Ms")) {
-    data = server.arg("Ms"); // Atur status mode show
-    data = "Ms=" + data;
-    getData(data);
-    server.send(200, "text/plain","OK");// (mode show) 
-  }
-  if (server.hasArg("At")) {
-    data = server.arg("At"); //ON/OFF AUTO TARTIL
-    autoTartilEnable = data;
-    server.send(200, "text/plain","OK");// 
-    saveToEEPROM();
-  }
-  if (server.hasArg("Vc")) {
-    data = server.arg("Vc"); //ON/OFF VOICE CLOCK
-    voiceClock = data;
-    server.send(200, "text/plain","OK");// 
-    saveToEEPROM();
-  }
-   if (server.hasArg("PLAY")) {//
-    data = server.arg("PLAY"); // Atur status play
-    //Serial.println("data mentah: " + data);
+  if (server.hasArg("PLAY")) {
+    // 1. Ambil data mentah sebagai String hanya untuk parsing
+    String mentah = server.arg("PLAY"); 
+    
     int idx = 0;
-    byte folder = getIntPart(data,idx);
-    byte file   = getIntPart(data,idx);
-    data = "PLAY:" + String(folder) + "," + String(file);
-    parseData(data);
-    //getData(data);
-    server.send(200, "text/plain","OK");// (stateBuzzer) ? "Suara Diaktifkan" : "Suara Dimatikan");
-  }
-  if (server.hasArg("PLAD")) {//
-    data = server.arg("PLAD"); // Atur status play
-    //Serial.println("data mentah: " + data);
-    int idx = 0;
-    byte file   = getIntPart(data,idx);
-    data = "PLAD:" + String(file);
-    parseData(data);
-    //getData(data);
-    server.send(200, "text/plain","OK");// (stateBuzzer) ? "Suara Diaktifkan" : "Suara Dimatikan");
-  }
-   if (server.hasArg("STOP")) {
-    data = "STOP";
-    parseData(data);
-    //getData(data);
-    server.send(200, "text/plain","OK");// (stateBuzzer) ? "Suara Diaktifkan" : "Suara Dimatikan");
-  }
-  if (server.hasArg("VOL")) {
-    data = server.arg("VOL"); // Atur status mode
-    data = "VOL:" + data;
-    parseData(data);
-    //getData(data);
-    server.send(200, "text/plain","OK");// (stateBuzzer) ? "Suara Diaktifkan" : "Suara Dimatikan");
-  }
-  if (server.hasArg("HR")) {
-    data = server.arg("HR"); // Ambil argumen HR
-    parseData("HR:" + data); // (Opsional) Kirim juga ke semua client via WebSocket
+    byte folder = getIntPart(mentah, idx);
+    byte file   = getIntPart(mentah, idx);
+
+    // 2. Format data langsung ke dalam dataBuffer
+    // %d adalah placeholder untuk integer/byte
+    snprintf(dataBuffer, sizeof(dataBuffer), "PLAY:%d,%d", folder, file);
+
+    // 3. Kirim data yang sudah rapi di buffer ke client
+    parseData(dataBuffer); 
+
     server.send(200, "text/plain", "OK");
-  }
-  if (server.hasArg("NAMAFILE")) {//
-    data = server.arg("NAMAFILE"); // Atur status play
-    //Serial.println("data mentah: " + data);
+    return; // Keluar dari fungsi agar lebih efisien
+}
+
+// --- PLAD ---
+  if (server.hasArg("PLAD")) {
+    String mentah = server.arg("PLAD");
     int idx = 0;
-    byte folder = getIntPart(data,idx);
-    byte file   = getIntPart(data,idx);
-    int durasi = getIntPart(data,idx);
-    data = "NAMAFILE:" + String(folder) + "," + String(file)+ "," + String(durasi);
-    parseData(data);
-    //getData(data);
-    server.send(200, "text/plain","OK");// (stateBuzzer) ? "Suara Diaktifkan" : "Suara Dimatikan");
+    byte file = getIntPart(mentah, idx);
+    snprintf(dataBuffer, sizeof(dataBuffer), "PLAD:%d", file);
+    parseData(dataBuffer);
+    server.send(200, "text/plain", "OK");
+    return;
   }
-  if (server.hasArg("ADZAN")) {//
-    data = server.arg("ADZAN"); // Atur status play
+
+  // --- STOP ---
+  if (server.hasArg("STOP")) {
+    parseData("STOP"); // Langsung kirim teks statis
+    server.send(200, "text/plain", "OK");
+    return;
+  }
+
+  // --- VOL ---
+  if (server.hasArg("VOL")) {
+    snprintf(dataBuffer, sizeof(dataBuffer), "VOL:%s", server.arg("VOL").c_str());
+    parseData(dataBuffer);
+    server.send(200, "text/plain", "OK");
+    return;
+  }
+
+  // --- HR ---
+  if (server.hasArg("HR")) {
+    snprintf(dataBuffer, sizeof(dataBuffer), "HR:%s", server.arg("HR").c_str());
+    parseData(dataBuffer);
+    server.send(200, "text/plain", "OK");
+    return;
+  }
+
+  // --- NAMAFILE ---
+  if (server.hasArg("NAMAFILE")) {
+    String mentah = server.arg("NAMAFILE");
     int idx = 0;
-    byte file = getIntPart(data,idx);
-    int durasi   = getIntPart(data,idx);
-    data = "ADZAN:" + String(file) + "," + String(durasi);
-    parseData(data);
-    //getData(data);
-    server.send(200, "text/plain","OK");// (stateBuzzer) ? "Suara Diaktifkan" : "Suara Dimatikan");
+    byte folder = getIntPart(mentah, idx);
+    byte file   = getIntPart(mentah, idx);
+    int durasi  = getIntPart(mentah, idx);
+    snprintf(dataBuffer, sizeof(dataBuffer), "NAMAFILE:%d,%d,%d", folder, file, durasi);
+    parseData(dataBuffer);
+    server.send(200, "text/plain", "OK");
+    return;
   }
+
+  // --- ADZAN ---
+  if (server.hasArg("ADZAN")) {
+    String mentah = server.arg("ADZAN");
+    int idx = 0;
+    byte file  = getIntPart(mentah, idx);
+    int durasi = getIntPart(mentah, idx);
+    snprintf(dataBuffer, sizeof(dataBuffer), "ADZAN:%d,%d", file, durasi);
+    parseData(dataBuffer);
+    server.send(200, "text/plain", "OK");
+    return;
+  }
+
+  // --- At ---
+  if (server.hasArg("At")) {
+    snprintf(dataBuffer, sizeof(dataBuffer), "At:%s", server.arg("At").c_str());
+    parseData(dataBuffer);
+    server.send(200, "text/plain", "OK");
+    return;
+  }
+
+  // --- Vc ---
+  if (server.hasArg("Vc")) {
+    snprintf(dataBuffer, sizeof(dataBuffer), "Vc:%s", server.arg("Vc").c_str());
+    parseData(dataBuffer);
+    server.send(200, "text/plain", "OK");
+    return;
+  }
+  
   if (server.hasArg("status")) {
-    data = "status=1" ;
-    getData(data);
+    snprintf(dataBuffer, sizeof(dataBuffer), "%s","status=1");
+    getData(dataBuffer);
     server.send(200, "text/plain", "CONNECTED");
+     return;
   }
  
-  if (server.hasArg("newPassword")) {
-      data = server.arg("newPassword");
-      data.toCharArray(password, data.length() + 1);
-      getData(data);
-      saveToEEPROM();
-      server.send(200, "text/plain","OK");// "Password WiFi diupdate");
-    } 
-  data="";
+ if (server.hasArg("newPassword")) {
+      // 1. Ambil password baru dari argumen server
+      String passwordBaru = server.arg("newPassword");
+
+      // 2. Format untuk kirim ke serial/monitor (dataBuffer)
+      snprintf(dataBuffer, sizeof(dataBuffer), "newPassword=%s", passwordBaru.c_str());
+      
+      // 3. Simpan ke variabel global 'pass' untuk digunakan fungsi Restart nanti
+      // Kita langsung isi, tidak perlu ditambah-tambah (+) agar tidak menumpuk
+      pass = dataBuffer; 
+
+      getData(dataBuffer);
+      parseData(dataBuffer);
+
+      // 4. Picu proses restart
+      stateRestart = true;
+      
+      server.send(200, "text/plain", "OK");
+      return;
+  }
+  
   //EEPROM.commit();
 }
 
@@ -395,9 +455,30 @@ void setup() {
   digitalWrite(RELAY_PIN, HIGH); // Awal mati
   pinMode(RUN_LED, OUTPUT);
   pinMode(RELAY_PIN, OUTPUT);
+
+   Wire.begin();
+  lcd.init();
+  lcd.backlight();
   
-  // UP.attachClick(readUp);
-  // DOWN.attachClick(readDown);
+  uint8_t rtn = I2C_ClearBus(); // clear the I2C bus first before calling Wire.begin()
+    if (rtn != 0) {
+      Serial.println(F("I2C bus error. Could not clear"));
+      if (rtn == 1) {
+        Serial.println(F("SCL clock line held low"));
+      } else if (rtn == 2) {
+        Serial.println(F("SCL clock line held low by slave clock stretch"));
+      } else if (rtn == 3) {
+        Serial.println(F("SDA data line held low"));
+      }
+    } 
+    else { // bus clear, re-enable Wire, now can start Wire Arduino master
+      Wire.begin();
+    }
+
+  Rtc.Begin();
+  Rtc.Enable32kHzPin(false);
+  Rtc.SetSquareWavePin(DS3231SquareWavePin_ModeNone);
+  
   delay(1000);
   Serial.begin(9600);
   dfSerial.begin(9600, SERIAL_8N1, /*rx =*/16, /*tx =*/17);
@@ -427,28 +508,27 @@ void loop() {
   cekSelesaiAdzanManual();
   cekSelesaiManual();
   getStatusRun();
-  checkHourlyChime();
-  // UP.tick();
-  // DOWN.tick();
-  
-  
+  islam();
+  check();
+  //checkHourlyChime();
+
 }
 
-// --- Fungsi cek bunyi jam & setengah jam ---
+/*/ --- Fungsi cek bunyi jam & setengah jam ---
 void checkHourlyChime() {
   if(!voiceClock) return;
 
  static int lastHalfPlay = -1;
 
   // Bunyi jam tepat
-  if (minute() == 0 && second() == 0 && hour() != lastHalfPlay && tartilSedangDiputar==false && adzanSedangDiputar==false && manualSedangDiputar == false) {
+  if (now.Minute() == 0 && now.Second() == 0 && now.Hour() != lastHalfPlay && tartilSedangDiputar==false && adzanSedangDiputar==false && manualSedangDiputar == false) {
     lastHalfPlay = hour();
     uint8_t jam = hour() % 12;
     if (jam == 0) { jam = 12; }
     dfplayer.volume(volumeDFPlayer);
     dfplayer.play(jam);  // Folder 1 = suara jam 1-12
   }
-}
+}*/
 
 void bacaDataSerial() {
   static String buffer = "";
@@ -466,20 +546,21 @@ void bacaDataSerial() {
 }
 
 void parseData(String data) {
-  Serial.println("DATA: " + data);
+Serial.print(F("data=" )); Serial.println(data);
+
 lastTimeReceived = millis();
  // --- Parsing TIME ---
 if (data.startsWith("TIME:")) {
-  //lastTimeReceived = millis();
   int idx = 5;
   uint8_t jam    = getIntPart(data, idx);
   uint8_t menit  = getIntPart(data, idx);
   uint8_t detik  = getIntPart(data, idx);
   uint8_t hari   = getIntPart(data, idx);
 
-  if (jam < 24 && menit < 60 && detik < 60 && hari < 7) {
-    setTime(jam, menit, detik, 1, 1, 2024);
-    currentDay = hari;
+if (jam < 24 && menit < 60 && detik < 60 && hari < 7) {
+  //setTime(jam, menit, detik, 1, 1, 2024);
+  Rtc.SetDateTime(RtcDateTime(now.Year(), now.Month(), now.Day(),jam, menit, detik));
+  currentDay = hari;
     //============ DEBUG =============//
 //    Serial.print(F("Waktu diatur ke: "));
 //    Serial.print(jam); Serial.print(":");
@@ -492,11 +573,36 @@ if (data.startsWith("TIME:")) {
   return;
 }
 
+//if (data.startsWith("Tm")) {
+// 
+//  // Format: HH:MM:SS-Tanggal-Bulan-Tahun
+//  uint8_t colon1 = data.indexOf(':');
+//  uint8_t colon2 = data.indexOf(':', colon1 + 1);
+//  uint8_t dash1 = data.indexOf('-');
+//  uint8_t dash2 = data.indexOf('-', dash1 + 1);
+//  uint8_t dash3 = v.indexOf('-', dash2 + 1);
+//
+//  if (colon1 != -1 && colon2 != -1 && dash1 != -1 && dash2 != -1 && dash3 != -1) {
+//    uint8_t jam    = data.substring(0, colon1).toInt();
+//    uint8_t menit  = data.substring(colon1 + 1, colon2).toInt();
+//    uint8_t detik  = data.substring(colon2 + 1, dash1).toInt();
+//    uint8_t tanggal= data.substring(dash1 + 1, dash2).toInt();
+//    uint8_t bulan  = data.substring(dash2 + 1, dash3).toInt();
+//    uint16_t tahun = v.substring(dash3 + 1).toInt();
+//
+//    Rtc.SetDateTime(RtcDateTime(tahun, bulan, tanggal,jam, menit, detik));
+//    //JWS.Update(config.zonawaktu, config.latitude, config.longitude, config.altitude, year(),month(), day());
+//     stateSendSholat = 1;
+//  }
+//  return;
+//}
+
 
   // --- Parsing VOL ---
-  if (data.startsWith("VOL:")) {
+  else if (data.startsWith("VOL:")) {
     //lastTimeReceived = millis();
     volumeDFPlayer = data.substring(4).toInt();
+    //Serial.println("volume:" + String(volumeDFPlayer));
     dfplayer.volume(volumeDFPlayer);
     saveToEEPROM();
     return;
@@ -504,7 +610,7 @@ if (data.startsWith("TIME:")) {
 
 //---- Program baru------//
   // --- Parsing HR (jadwal harian) ---
-if (data.startsWith("HR:")) {
+else if (data.startsWith("HR:")) {
   //lastTimeReceived = millis();
   int hariEnd = data.indexOf('|');
   if (hariEnd == -1) return;
@@ -543,7 +649,7 @@ for (int i = 0; i < 5; i++) {
 }
 //----------------------------//
 
-if (data.startsWith("PLAY:")) {
+else if (data.startsWith("PLAY:")) {
   //lastTimeReceived = millis();
   int idx = 5;
   byte folder = getIntPart(data, idx);
@@ -552,21 +658,20 @@ if (data.startsWith("PLAY:")) {
   if (folder >= 1 && folder < 12 && file >= 1 && file < MAX_FILE) {
     uint16_t durasi = durasiTartil[folder-1][file];  // ambil dari array
     if (durasi > 0) {
-      //delay(1000);
+      //dfplayer.playFolder(folder, file);
       dfplayer.volume(volumeDFPlayer);
       dfplayer.play(file);
-      //delay(100);
       //============ DEBUG =============//
-      // Serial.print("Memutar manual: folder "); Serial.print(folder);
-      // Serial.print(", file "); Serial.print(file);
-      // Serial.print(", durasi "); Serial.print(durasi); Serial.println(" detik");
+//      Serial.print("Memutar manual: folder "); Serial.print(folder);
+//      Serial.print(", file "); Serial.print(file);
+//      Serial.print(", durasi "); Serial.print(durasi); Serial.println(" detik");
 
       digitalWrite(RELAY_PIN, LOW);//relay NYALA
       tartilCounter         = 0;
       targetDurasi          = durasi;
       lastTick              = millis();
       manualSedangDiputar   = true;
-      relayMenungguMati     = false;
+      //relayMenungguMati     = false;
     } else {
       //Serial.println("Durasi tidak ditemukan atau 0.");
     }
@@ -575,7 +680,7 @@ if (data.startsWith("PLAY:")) {
 }
 
 //------------------------------------------------
-if (data.startsWith("PLAD:")) {
+else if (data.startsWith("PLAD:")) {
   int idx = 5;
   byte file   = getIntPart(data, idx);
 
@@ -584,7 +689,7 @@ if (data.startsWith("PLAD:")) {
 //    Serial.print("file "); Serial.print(file); Serial.print(" ");
 //    Serial.print(durasi); Serial.println(" detik");
     if (durasi > 0) {
-      //delay(500);
+      //dfplayer.playFolder(11, file);
       dfplayer.volume(volumeDFPlayer);
       dfplayer.play(file);
       digitalWrite(RELAY_PIN, LOW);//relay NYALA
@@ -598,11 +703,11 @@ if (data.startsWith("PLAD:")) {
 //------------------------------------------------
 
   // --- Perintah STOP ---
-  if (data.startsWith("STOP")) {
+else if (data.startsWith("STOP")) {
     //lastTimeReceived = millis();
     dfplayer.stop();
     digitalWrite(RELAY_PIN, HIGH);//relay mati
-    relayMenungguMati = false;
+    //relayMenungguMati = false;
     tartilSedangDiputar = false;
     adzanSedangDiputar = false;
     manualSedangDiputar = false;
@@ -612,7 +717,7 @@ if (data.startsWith("PLAD:")) {
   }
 
 // ----------- PROGRAM BARU
-if (data.startsWith("NAMAFILE:")) {
+else if (data.startsWith("NAMAFILE:")) {
   //lastTimeReceived = millis();
   int idx = 9;
   byte folder = getIntPart(data, idx);
@@ -634,7 +739,7 @@ if (data.startsWith("NAMAFILE:")) {
 }
 
 
-if (data.startsWith("ADZAN:")) {
+else if (data.startsWith("ADZAN:")) {
   //lastTimeReceived = millis();
   int idx = 6;
   byte file = getIntPart(data, idx);
@@ -650,7 +755,7 @@ if (data.startsWith("ADZAN:")) {
   return;
 }
 
-if (data.startsWith("JWS:")) {
+else if (data.startsWith("JWS:")) {
   //lastTimeReceived = millis();
   String sisa = data.substring(4); // Hilangkan "JWS:"
   for (int i = 0; i < WAKTU_TOTAL; i++) {
@@ -669,18 +774,40 @@ if (data.startsWith("JWS:")) {
       sisa = sisa.substring(pemisahIdx + 1); // lanjut ke data berikutnya
     }
   }
+}
 
-  saveToEEPROM();
-  //============ DEBUG =============//
-  //Serial.println("Jadwal Sholat diperbarui:");
-//  for (int i = 0; i < WAKTU_TOTAL; i++) {
-//    Serial.print(" - Waktu "); Serial.print(i);
-//    Serial.print(": "); Serial.print(jamSholat[i]);
-//    Serial.print(":"); Serial.println(menitSholat[i]);
-//  }
+  // --- Parsing At (Auto Tartil) ---
+else if (data.startsWith("At:")) {
+  autoTartilEnable = data.substring(3).toInt();
+  // Serial.print("AutoTartil: ");
+  // Serial.println(autoTartilEnable);
   return;
 }
 
+// --- Parsing newPassword ---
+else if (data.startsWith("newPassword=")) {
+  String pwd = data.substring(12);
+
+  if (pwd.length() == 8) {
+    pwd.toCharArray(password, 9); // copy aman
+
+    // Serial.print("Password baru diterima: ");
+    // Serial.println(password);
+
+    saveToEEPROM();   // simpan di EEPROM ESP8266 (bukan ESP-01)
+    delay(1000);
+    ESP.restart();
+  } else {
+    Serial.println("Password invalid (harus 8 karakter)");
+  }
+  return;
+}
+
+  saveToEEPROM();
+  //============ DEBUG =============//
+  
+
+data="";
 }
 
 void cekSelesaiManual() {
@@ -719,203 +846,7 @@ void cekSelesaiAdzanManual() {
 }
 
 
-uint16_t getDurasiTartil(byte folder, int file) {
-  if (folder == 0 || folder > MAX_FOLDER || file >= MAX_FILE) return 0;
-  return durasiTartil[folder - 1][file];
-}
 
-uint16_t getDurasiAdzan(int file) {
-  if (file == 0 || file >= MAX_FILE) return 0;
-  return durasiAdzan[file];
-}
-
-void cekDanPutarSholatNonBlocking() {
-  if (tartilSedangDiputar || adzanSedangDiputar || sudahEksekusi || !autoTartilEnable) return;
-
-  uint32_t detikSekarang = hour() * 3600UL + minute() * 60UL + second();  // cukup pakai uint16_t
-
-  static bool stateJadwal = false;
-
-  // Cetak hanya sekali pada menit tertentu
-  if ((minute() == 0 || minute() == 15 || minute() == 30 || minute() == 45) && second() == 0 && !stateJadwal) {
-    stateJadwal = true;
-    Serial.println("jadwal=1");
-  } else if (second() != 0) {
-  stateJadwal = false;
-  } 
-
-
-  for (byte w = 0; w < WAKTU_TOTAL; w++) { 
-    
-    WaktuConfig &cfg = jadwal[currentDay][w];
-    if (!cfg.aktif) continue;
-    if (jamSholat[w] == 0 && menitSholat[w] == 0) continue;  // Lewati jadwal tidak valid
-    
-    uint16_t totalDurasi = 0;
-    
-    // Hitung total durasi dari file tartil
-    for (byte i = 0; i < 5; i++) {
-      byte f = cfg.list[i];
-      if (f) {
-        uint16_t d = getDurasiTartil(cfg.folder, 17+f);
-        if (d) totalDurasi += d;
-//        Serial.println("f:" + String(f));
-//        Serial.println("d:" + String(d));
-      }
-      
-    }
-
-    uint32_t jadwalDetik = jamSholat[w] * 3600UL + menitSholat[w] * 60UL;
-    uint32_t triggerDetik = cfg.tartilDulu ? (jadwalDetik - totalDurasi) : jadwalDetik;
-    
-    
-    if (triggerDetik > 86400) continue;  // Lewati jika melebihi 1 hari
-//    Serial.println("triggerDetik:" + String(triggerDetik));
-//    Serial.println("detikSekarang:" + String(detikSekarang));
-   
-    if (detikSekarang == triggerDetik) {
-      /*/============ DEBUG =============//
-      Serial.println("TRIGGER MATCH!");
-      Serial.println("jam: " + String(hour()) + " " + "menit: " + String(minute()) + "detik: " + String(second()));
-      Serial.println("jamSholat[w]: " + String(jamSholat[w]));
-      Serial.println("menitSholat[w]: " + String(menitSholat[w]));
-      Serial.println("jadwalDetik: " + String(jadwalDetik));
-      Serial.println("totalDurasi: " + String(totalDurasi));
-      Serial.println("triggerDetik: " + String(triggerDetik));
-      Serial.println("detikSekarang: " + String(detikSekarang));
-      //================================/*/
-      dfplayer.volume(volumeDFPlayer);
-      digitalWrite(RELAY_PIN, LOW);//relay NYALA
-      currentCfg = &cfg;
-      lastTriggerMillis = millis();
-      sudahEksekusi = true;
-
-      if (cfg.tartilDulu && totalDurasi > 0) {
-        tartilIndex = 0;
-        tartilFolder = cfg.folder;
-        tartilCounter = 0;
-        tartilSedangDiputar = true;
-        manualSedangDiputar = false;
-
-        byte f = cfg.list[tartilIndex];
-        targetDurasi = getDurasiTartil(tartilFolder, 17+f);
-        lastTick = millis();
-        dfplayer.play(17 + f); //TARTIL DIMULAI DINOMOR 20
-
-#if DEBUG
-        Serial.print("Tartil dimulai: ");
-        Serial.println(f);
-#endif
-
-      } else if (cfg.aktifAdzan) {
-        targetDurasiAdzan = getDurasiAdzan(12 + cfg.fileAdzan);
-        adzanCounter = 0;
-        lastAdzanTick = millis();
-        adzanSedangDiputar = true;
-        dfplayer.play(12 + cfg.fileAdzan); //ADZAN DIMULAI DINOMOR 20
-
-#if DEBUG
-        Serial.print("Adzan langsung diputar: ");
-        Serial.println(cfg.fileAdzan);
-#endif
-      }
-    }
-  }
-}
-
-void cekSelesaiTartil() {
-  if (!tartilSedangDiputar) return;
-
-  // Jeda antar file tartil
-  if (jedaAktif) {
-    if (millis() - jedaMulaiMillis >= JEDA_ANTAR_TARTIL) {
-      jedaAktif = false;
-
-      if (tartilIndex < 5) {
-        byte f = currentCfg->list[tartilIndex];
-        if (f) {
-          targetDurasi = getDurasiTartil(tartilFolder, 17+f);
-          tartilCounter = 0;
-          lastTick = millis();
-          dfplayer.play(17 + f);
-#if DEBUG
-          Serial.print("Memutar tartil selanjutnya: ");
-          Serial.println(f);
-#endif
-        } else {
-          tartilIndex = 5; // skip ke akhir
-        }
-      } else {
-        tartilSedangDiputar = false;
-      }
-    }
-    return;
-  }
-
-  // Counter tartil per detik
-  if (millis() - lastTick >= 1000) {
-    lastTick = millis();
-    if (++tartilCounter >= targetDurasi) {
-      tartilIndex++;
-      if (tartilIndex < 5) {
-        if (currentCfg->list[tartilIndex]) {
-          jedaAktif = true;
-          jedaMulaiMillis = millis();
-#if DEBUG
-          Serial.println("Menunggu jeda antar file tartil...");
-#endif
-        } else {
-          tartilIndex = 5;
-        }
-      } else {
-        // Tartil selesai
-        tartilSedangDiputar = false;
-        if (currentCfg->aktifAdzan) {
-          adzanCounter = 0;
-          targetDurasiAdzan = getDurasiAdzan(12 + currentCfg->fileAdzan);
-          lastAdzanTick = millis();
-          adzanSedangDiputar = true;
-          dfplayer.play(12 + currentCfg->fileAdzan);
-#if DEBUG
-          Serial.println("Tartil selesai, memutar adzan.");
-#endif
-        } else {
-          matikanSemuaAudio();
-          //digitalWrite(RELAY_PIN, LOW);
-#if DEBUG
-          Serial.println("Tartil selesai, relay dimatikan.");
-#endif
-        }
-      }
-    }
-  }
-}
-
-
-void matikanSemuaAudio() {
-  dfplayer.stop();
-  digitalWrite(RELAY_PIN, HIGH);//relay mati
-  relayMenungguMati = false;
-  tartilSedangDiputar = false;
-  adzanSedangDiputar = false;
-  manualSedangDiputar = false;
-}
-
-void cekSelesaiAdzan() {
-  if (!adzanSedangDiputar) return;
-
-  if (millis() - lastAdzanTick >= 1000) {
-    lastAdzanTick = millis();
-    adzanCounter++;
-
-    if (adzanCounter >= targetDurasiAdzan) {
-      dfplayer.stop();
-      digitalWrite(RELAY_PIN, HIGH);//relay mati
-      adzanSedangDiputar = false;
-     // Serial.println("Adzan selesai. Relay dimatikan.");
-    }
-  }
-}
 
 void getStatusRun() {
   uint32_t now = millis();
@@ -937,153 +868,66 @@ void setLED(uint8_t brightness) {
   analogWrite(RUN_LED, brightness);
 }
 
-/*void readUp(){
-  volumeDFPlayer < 25? volumeDFPlayer++ : volumeDFPlayer=25;
-  Serial.println("volume up=" + String(volumeDFPlayer));
-  dfplayer.volume(volumeDFPlayer);
-  saveToEEPROM();
-}
+uint8_t I2C_ClearBus() {
 
-void readDown(){
-  volumeDFPlayer > 0? volumeDFPlayer-- : volumeDFPlayer=0;
-  Serial.println("volume down=" + String(volumeDFPlayer));
-  dfplayer.volume(volumeDFPlayer);
-  saveToEEPROM();
-}*/
-
-void saveToEEPROM() {
-  //Serial.println("Menyimpan data ke EEPROM...");
-  int addr = 0;
-
-  for (int h = 0; h < HARI_TOTAL; h++) {
-    for (int w = 0; w < WAKTU_TOTAL; w++) {
-      EEPROM.put(addr, jadwal[h][w]);
-      addr += sizeof(WaktuConfig);
-    }
-  }
-
-  for (int i = 0; i < MAX_FILE; i++) {
-    EEPROM.put(addr, durasiAdzan[i]);
-    addr += sizeof(uint16_t);
-  }
-
-  for (int f = 0; f < MAX_FOLDER; f++) {
-    for (int i = 0; i < MAX_FILE; i++) {
-      EEPROM.put(addr, durasiTartil[f][i]);
-      addr += sizeof(uint16_t);  // perbaikan: sebelumnya kamu baca uint16_t, padahal simpan uint32_t
-      
-    }
-  }
-
-  EEPROM.write(addr, volumeDFPlayer);
-  addr += sizeof(volumeDFPlayer);
-
-  for (int i = 0; i < WAKTU_TOTAL; i++) {
-    EEPROM.write(addr++, jamSholat[i]);
-    EEPROM.write(addr++, menitSholat[i]);
-  }
-
- /* =========================
-     TAMBAHAN BARU (TANPA
-     MERUBAH STRUKTUR LOGIKA)
-     ========================= */
-
-  // Simpan status Auto Tartil (ON/OFF)
-  EEPROM.write(addr++, autoTartilEnable ? 1 : 0);
-
-  EEPROM.write(addr++, voiceClock ? 1 : 0);
-
-  // Simpan password
-  for (int i = 0; i < PASSWORD_LEN; i++) {
-    EEPROM.write(addr++, password[i]);
-  }
-
-#if defined(ESP8266) || defined(ESP32)
-  EEPROM.commit();  // WAJIB untuk ESP
+#if defined(TWCR) && defined(TWEN)
+  TWCR &= ~(_BV(TWEN)); //Disable the Atmel 2-Wire interface so we can control the SDA and SCL pins directly
 #endif
 
-}
+  pinMode(SDA, INPUT_PULLUP); // Make SDA (data) and SCL (clock) pins Inputs with pullup.
+  pinMode(SCL, INPUT_PULLUP);
 
-void loadFromEEPROM() {
-  int addr = 0;
+  delay(2500);  // Wait 2.5 secs. This is strictly only necessary on the first power
+  // up of the DS3231 module to allow it to initialize properly,
+  // but is also assists in reliable programming of FioV3 boards as it gives the
+  // IDE a chance to start uploaded the program
+  // before existing sketch confuses the IDE by sending Serial data.
 
-  for (int h = 0; h < HARI_TOTAL; h++) {
-    for (int w = 0; w < WAKTU_TOTAL; w++) {
-      EEPROM.get(addr, jadwal[h][w]);
-      addr += sizeof(WaktuConfig);
-      /*/============ DEBUG =============//
-      Serial.print("HR:"); Serial.print(h);
-      Serial.print(" W"); Serial.print(w);
-      Serial.print(" Aktif:"); Serial.print(jadwal[h][w].aktif);
-      Serial.print(" Adzan:"); Serial.print(jadwal[h][w].aktifAdzan);
-      Serial.print(" FileAdzan:"); Serial.print(jadwal[h][w].fileAdzan);
-      Serial.print(" TartilDulu:"); Serial.print(jadwal[h][w].tartilDulu);
-      Serial.print(" Folder:"); Serial.print(jadwal[h][w].folder);
-      Serial.print(" List:");
-      Serial.print(jadwal[h][w].list[0]); Serial.print("-");
-      Serial.print(jadwal[h][w].list[1]); Serial.print("-");
-      Serial.print(jadwal[h][w].list[2]); Serial.print("-");
-      Serial.print(jadwal[h][w].list[3]); Serial.print("-");
-      Serial.println(jadwal[h][w].list[4]);
-      //================================/*/
+  boolean SCL_LOW = (digitalRead(SCL) == LOW); // Check is SCL is Low.
+  if (SCL_LOW) { //If it is held low Arduno cannot become the I2C master.
+    return 1; //I2C bus error. Could not clear SCL clock line held low
+  }
+
+  boolean SDA_LOW = (digitalRead(SDA) == LOW);  // vi. Check SDA input.
+  uint8_t clockCount = 20; // > 2x9 clock
+
+  while (SDA_LOW && (clockCount > 0)) { //  vii. If SDA is Low,
+    clockCount--;
+    // Note: I2C bus is open collector so do NOT drive SCL or SDA high.
+    pinMode(SCL, INPUT); // release SCL pullup so that when made output it will be LOW
+    pinMode(SCL, OUTPUT); // then clock SCL Low
+    delayMicroseconds(10); //  for >5uS
+    pinMode(SCL, INPUT); // release SCL LOW
+    pinMode(SCL, INPUT_PULLUP); // turn on pullup resistors again
+    // do not force high as slave may be holding it low for clock stretching.
+    delayMicroseconds(10); //  for >5uS
+    // The >5uS is so that even the slowest I2C devices are handled.
+    SCL_LOW = (digitalRead(SCL) == LOW); // Check if SCL is Low.
+    uint8_t counter = 20;
+    while (SCL_LOW && (counter > 0)) {  //  loop waiting for SCL to become High only wait 2sec.
+      counter--;
+      delay(100);
+      SCL_LOW = (digitalRead(SCL) == LOW);
     }
-  }
-
-  for (int i = 0; i < MAX_FILE; i++) {
-    EEPROM.get(addr, durasiAdzan[i]);
-    addr += sizeof(uint16_t);
-    //============ DEBUG =============//
-//  Serial.print("adzan["); Serial.print(i);
-//  Serial.print("] = "); Serial.println(durasiAdzan[i]);
-    //================================//
-  }
-
-  for (int f = 0; f < MAX_FOLDER; f++) {
-    for (int i = 0; i < MAX_FILE; i++) {
-      EEPROM.get(addr, durasiTartil[f][i]);
-      addr += sizeof(uint16_t);  // perbaikan: harus cocok dengan penyimpanan
-      //============ DEBUG =============//
-  //  Serial.print("Tartil["); Serial.print(f); Serial.print("]["); Serial.print(i);
-  //  Serial.print("] = "); Serial.println(durasiTartil[f][i]);
-      //================================//
+    if (SCL_LOW) { // still low after 2 sec error
+      return 2; // I2C bus error. Could not clear. SCL clock line held low by slave clock stretch for >2sec
     }
+    SDA_LOW = (digitalRead(SDA) == LOW); //   and check SDA input again and loop
+  }
+  if (SDA_LOW) { // still low
+    return 3; // I2C bus error. Could not clear. SDA data line held low
   }
 
-  EEPROM.get(addr, volumeDFPlayer);
-  addr += sizeof(volumeDFPlayer);
-  //============ DEBUG =============//
-  // Serial.println("VOL:" + String(volumeDFPlayer));
-  //================================//
-  
-  for (int i = 0; i < WAKTU_TOTAL; i++) {
-    EEPROM.get(addr, jamSholat[i]); addr += sizeof(uint8_t);
-    EEPROM.get(addr, menitSholat[i]); addr += sizeof(uint8_t);
-    //============ DEBUG =============//
-  //  Serial.print("jamSholat["); Serial.print(i);
-  //  Serial.print("] = "); Serial.println(jamSholat[i]);
-  //  Serial.print("menitSholat["); Serial.print(i);
-  //  Serial.print("] = "); Serial.println(menitSholat[i]);
-    //================================//
-  }
-
-  /* =========================
-     TAMBAHAN BARU
-     ========================= */
-
-  // Baca status Auto Tartil
-  autoTartilEnable = EEPROM.read(addr++) == 1;
-  // Serial.print("autoTartilEnable:");
-  // Serial.println(autoTartilEnable);
-
-  voiceClock = EEPROM.read(addr++) == 1;
-  // Serial.print("voiceClock:");
-  // Serial.println(voiceClock);
-
-  // Baca password
-  for (int i = 0; i < PASSWORD_LEN; i++) {
-    password[i] = EEPROM.read(addr++);
-  }
-  password[PASSWORD_LEN - 1] = '\0'; // safety null-terminator
-  // Serial.print("password:");
-  // Serial.println(password);
+  // else pull SDA line low for Start or Repeated Start
+  pinMode(SDA, INPUT); // remove pullup.
+  pinMode(SDA, OUTPUT);  // and then make it LOW i.e. send an I2C Start or Repeated start control.
+  // When there is only one I2C master a Start or Repeat Start has the same function as a Stop and clears the bus.
+  /// A Repeat Start is a Start occurring after a Start with no intervening Stop.
+  delayMicroseconds(10); // wait >5uS
+  pinMode(SDA, INPUT); // remove output low
+  pinMode(SDA, INPUT_PULLUP); // and make SDA high i.e. send I2C STOP control.
+  delayMicroseconds(10); // x. wait >5uS
+  pinMode(SDA, INPUT); // and reset pins as tri-state inputs which is the default state on reset
+  pinMode(SCL, INPUT);
+  return 0; // all ok
 }
