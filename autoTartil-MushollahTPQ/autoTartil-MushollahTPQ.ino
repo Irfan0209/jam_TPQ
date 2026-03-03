@@ -456,8 +456,8 @@ void setup() {
   pinMode(RUN_LED, OUTPUT);
   pinMode(RELAY_PIN, OUTPUT);
 
-   Wire.begin();
-  lcd.init();
+   //Wire.begin();
+  lcd.begin();
   lcd.backlight();
   
   uint8_t rtn = I2C_ClearBus(); // clear the I2C bus first before calling Wire.begin()
@@ -510,6 +510,7 @@ void loop() {
   getStatusRun();
   islam();
   check();
+  showDisplay();
   //checkHourlyChime();
 
 }

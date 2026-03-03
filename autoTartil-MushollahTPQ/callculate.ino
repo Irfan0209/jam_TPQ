@@ -1,9 +1,9 @@
-uint16_t getDurasiTartil(byte folder, int file) {
+uint16_t getDurasiTartil(byte folder, uint8_t file) {
   if (folder == 0 || folder > MAX_FOLDER || file >= MAX_FILE) return 0;
   return durasiTartil[folder - 1][file];
 }
 
-uint16_t getDurasiAdzan(int file) {
+uint16_t getDurasiAdzan(uint8_t file) {
   if (file == 0 || file >= MAX_FILE) return 0;
   return durasiAdzan[file];
 }
