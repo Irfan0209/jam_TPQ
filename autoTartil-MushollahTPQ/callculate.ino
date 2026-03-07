@@ -9,7 +9,7 @@ uint16_t getDurasiAdzan(uint8_t file) {
 }
 
 void cekDanPutarSholatNonBlocking() {
-  if (tartilSedangDiputar || adzanSedangDiputar || sudahEksekusi || !autoTartilEnable) return;
+  if (tartilSedangDiputar || adzanSedangDiputar || sudahEksekusi) return;
   
   RtcDateTime now = Rtc.GetDateTime();
   uint32_t detikSekarang = now.Hour() * 3600UL + now.Minute() * 60UL + now.Second();  // cukup pakai uint16_t
@@ -37,7 +37,7 @@ void cekDanPutarSholatNonBlocking() {
     for (byte i = 0; i < 5; i++) {
       byte f = cfg.list[i];
       if (f) {
-        uint16_t d = getDurasiTartil(cfg.folder, 17+f);
+        uint16_t d = getDurasiTartil(cfg.folder,f);
         if (d) totalDurasi += d;
 //        Serial.println("f:" + String(f));
 //        Serial.println("d:" + String(d));
@@ -78,9 +78,9 @@ void cekDanPutarSholatNonBlocking() {
         manualSedangDiputar = false;
 
         byte f = cfg.list[tartilIndex];
-        targetDurasi = getDurasiTartil(tartilFolder, 17+f);
+        targetDurasi = getDurasiTartil(tartilFolder, f);
         lastTick = millis();
-        dfplayer.play(17 + f); //TARTIL DIMULAI DINOMOR 20
+        dfplayer.playFolder(tartilFolder, f); //TARTIL DIMULAI DINOMOR 20
 
 #if DEBUG
         Serial.print("Tartil dimulai: ");
@@ -88,11 +88,11 @@ void cekDanPutarSholatNonBlocking() {
 #endif
 
       } else if (cfg.aktifAdzan) {
-        targetDurasiAdzan = getDurasiAdzan(12 + cfg.fileAdzan);
+        targetDurasiAdzan = getDurasiAdzan(cfg.fileAdzan);
         adzanCounter = 0;
         lastAdzanTick = millis();
         adzanSedangDiputar = true;
-        dfplayer.play(12 + cfg.fileAdzan); //ADZAN DIMULAI DINOMOR 20
+        dfplayer.playFolder(2, cfg.fileAdzan); //ADZAN DIMULAI DINOMOR 20
 
 #if DEBUG
         Serial.print("Adzan langsung diputar: ");
@@ -114,10 +114,10 @@ void cekSelesaiTartil() {
       if (tartilIndex < 5) {
         byte f = currentCfg->list[tartilIndex];
         if (f) {
-          targetDurasi = getDurasiTartil(tartilFolder, 17+f);
+          targetDurasi = getDurasiTartil(tartilFolder, f);
           tartilCounter = 0;
           lastTick = millis();
-          dfplayer.play(17 + f);
+          dfplayer.playFolder(tartilFolder, f);
 #if DEBUG
           Serial.print("Memutar tartil selanjutnya: ");
           Serial.println(f);
@@ -152,10 +152,10 @@ void cekSelesaiTartil() {
         tartilSedangDiputar = false;
         if (currentCfg->aktifAdzan) {
           adzanCounter = 0;
-          targetDurasiAdzan = getDurasiAdzan(12 + currentCfg->fileAdzan);
+          targetDurasiAdzan = getDurasiAdzan(currentCfg->fileAdzan);
           lastAdzanTick = millis();
           adzanSedangDiputar = true;
-          dfplayer.play(12 + currentCfg->fileAdzan);
+          dfplayer.playFolder(2, currentCfg->fileAdzan);
 #if DEBUG
           Serial.println("Tartil selesai, memutar adzan.");
 #endif

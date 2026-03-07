@@ -38,7 +38,7 @@ void check() {
     adzanFlag[counter] = false;   // reset jika jadwal berubah
   }
 
-  /*/ ================= CEK WAKTU ADZAN =================
+  // ================= CEK WAKTU ADZAN =================
   if (!stateSendSholat && nowMs - scanTmr >= 100) {
     scanTmr = nowMs;
 
@@ -72,7 +72,7 @@ void check() {
 
     counter++;
     if (counter >= 5) counter = 0;
-  }*/
+  }
 
   // ================= KIRIM DATA JWS =================
   if (stateSendSholat && nowMs - sendTmr >= 500) {
@@ -89,7 +89,7 @@ void check() {
 
     *p = '\0';
     Serial.println(buf);
-
+    parseData(buf);
     stateSendSholat = false;
   }
 }

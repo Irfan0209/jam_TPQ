@@ -38,7 +38,7 @@ void saveToEEPROM() {
   // Simpan status Auto Tartil (ON/OFF)
   EEPROM.put(addr++, autoTartilEnable ? 1 : 0);
 
-  EEPROM.put(addr++, voiceClock ? 1 : 0);
+ // EEPROM.put(addr++, voiceClock ? 1 : 0);
 
   // Simpan password
   for (int i = 0; i < PASSWORD_LEN; i++) {
@@ -58,7 +58,7 @@ void loadFromEEPROM() {
     for (uint8_t w = 0; w < WAKTU_TOTAL; w++) {
       EEPROM.get(addr, jadwal[h][w]);
       addr += sizeof(WaktuConfig);
-      /*/============ DEBUG =============//
+      //============ DEBUG =============//
       Serial.print("HR:"); Serial.print(h);
       Serial.print(" W"); Serial.print(w);
       Serial.print(" Aktif:"); Serial.print(jadwal[h][w].aktif);
@@ -80,8 +80,8 @@ void loadFromEEPROM() {
     EEPROM.get(addr, durasiAdzan[i]);
     addr += sizeof(uint16_t);
     //============ DEBUG =============//
-//  Serial.print("adzan["); Serial.print(i);
-//  Serial.print("] = "); Serial.println(durasiAdzan[i]);
+  Serial.print("adzan["); Serial.print(i);
+  Serial.print("] = "); Serial.println(durasiAdzan[i]);
     //================================//
   }
 
@@ -90,8 +90,8 @@ void loadFromEEPROM() {
       EEPROM.get(addr, durasiTartil[f][i]);
       addr += sizeof(uint16_t);  // perbaikan: harus cocok dengan penyimpanan
       //============ DEBUG =============//
-  //  Serial.print("Tartil["); Serial.print(f); Serial.print("]["); Serial.print(i);
-  //  Serial.print("] = "); Serial.println(durasiTartil[f][i]);
+    Serial.print("Tartil["); Serial.print(f); Serial.print("]["); Serial.print(i);
+    Serial.print("] = "); Serial.println(durasiTartil[f][i]);
       //================================//
     }
   }
@@ -99,17 +99,17 @@ void loadFromEEPROM() {
   EEPROM.get(addr, volumeDFPlayer);
   addr += sizeof(volumeDFPlayer);
   //============ DEBUG =============//
-  // Serial.println("VOL:" + String(volumeDFPlayer));
+   Serial.println("VOL:" + String(volumeDFPlayer));
   //================================//
   
   for (uint8_t i = 0; i < WAKTU_TOTAL; i++) {
     EEPROM.get(addr, jamSholat[i]); addr += sizeof(uint8_t);
     EEPROM.get(addr, menitSholat[i]); addr += sizeof(uint8_t);
     //============ DEBUG =============//
-  //  Serial.print("jamSholat["); Serial.print(i);
-  //  Serial.print("] = "); Serial.println(jamSholat[i]);
-  //  Serial.print("menitSholat["); Serial.print(i);
-  //  Serial.print("] = "); Serial.println(menitSholat[i]);
+    Serial.print("jamSholat["); Serial.print(i);
+    Serial.print("] = "); Serial.println(jamSholat[i]);
+    Serial.print("menitSholat["); Serial.print(i);
+    Serial.print("] = "); Serial.println(menitSholat[i]);
     //================================//
   }
 
@@ -119,18 +119,18 @@ void loadFromEEPROM() {
 
   // Baca status Auto Tartil
   autoTartilEnable = EEPROM.read(addr++) == 1;
-  // Serial.print("autoTartilEnable:");
-  // Serial.println(autoTartilEnable);
+   Serial.print("autoTartilEnable:");
+   Serial.println(autoTartilEnable);
 
-  voiceClock = EEPROM.read(addr++) == 1;
-  // Serial.print("voiceClock:");
-  // Serial.println(voiceClock);
+//  voiceClock = EEPROM.read(addr++) == 1;
+//   Serial.print("voiceClock:");
+//   Serial.println(voiceClock);
 
   // Baca password
   for (uint8_t i = 0; i < PASSWORD_LEN; i++) {
     password[i] = EEPROM.read(addr++);
   }
   password[PASSWORD_LEN - 1] = '\0'; // safety null-terminator
-  // Serial.print("password:");
-  // Serial.println(password);
+   Serial.print("password:");
+   Serial.println(password);
 }
