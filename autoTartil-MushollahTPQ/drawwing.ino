@@ -1,4 +1,4 @@
-char* Jadwal[] = {"IMSAK","SUBUH", "TERBT", "DUHUR", "ASHAR", "MAGRB", "ISYA'"};
+char* Jadwal[] = {" IMSAK"," SUBUH", "TERBIT", "DZUHUR", " ASHAR", "MAGRIB", " ISYA'"};
 char* jadwalAzzan[] = {"SUBUH","DZUHUR", "ASHAR", "MAGRIB", "ISYA'"};
 
 void showDisplay(){

@@ -132,7 +132,7 @@ constexpr uint32_t TIMEOUT_INTERVAL = 70000; // 70 detik, lebih dari 1 menit
 uint8_t dataIhty[]      = {0,0,0,0,0,10};
 
 struct Config {
-  uint8_t durasiadzan = 40;
+  uint8_t durasiadzan = 60;
   uint8_t altitude = 43;
   double latitude = -7.364057;
   double longitude = 112.646222;
@@ -662,6 +662,8 @@ void parseData(const char* data) {
       if (durasi > 0) {
         dfplayer.volume(volumeDFPlayer);
         dfplayer.playFolder(folder,file);
+        lcd.setCursor(15,0);
+        lcd.write(0);
         digitalWrite(RELAY_PIN, LOW); // Relay NYALA
         tartilCounter       = 0;
         targetDurasi        = durasi;
@@ -683,6 +685,8 @@ void parseData(const char* data) {
     if (durasi > 0) {
       dfplayer.volume(volumeDFPlayer);
       dfplayer.playFolder(2,file);
+      lcd.setCursor(15,0);
+      lcd.write(0);
       digitalWrite(RELAY_PIN, LOW); // Relay NYALA
       adzanCounter             = 0;
       targetDurasiAdzan        = durasi;
@@ -695,6 +699,8 @@ void parseData(const char* data) {
   // --- Parsing STOP ---
   else if (strncmp(data, "STOP", 4) == 0) {
     dfplayer.stop();
+    lcd.setCursor(15,0);
+    lcd.print(" ");
     digitalWrite(RELAY_PIN, HIGH); // Relay MATI
     tartilSedangDiputar = false;
     adzanSedangDiputar  = false;
@@ -1045,6 +1051,8 @@ if (manualSedangDiputar) {
     
     if (tartilCounter >= targetDurasi) {
       dfplayer.stop();
+      lcd.setCursor(15,0);
+      lcd.print(" ");
       digitalWrite(RELAY_PIN, HIGH);//relay mati
       manualSedangDiputar = false;
       //Serial.println("Manual tartil selesai.");
@@ -1062,6 +1070,8 @@ void cekSelesaiAdzanManual() {
 
     if (adzanCounter >= targetDurasiAdzan) {
       dfplayer.stop();
+      lcd.setCursor(15,0);
+      lcd.print(" ");
       digitalWrite(RELAY_PIN, HIGH);//relay mati
       adzanManualSedangDiputar = false;
       adzanCounter=0;

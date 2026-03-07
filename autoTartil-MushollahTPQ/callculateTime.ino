@@ -5,9 +5,7 @@ void islam() {
   uint8_t bln = now.Month();
   uint16_t thn = now.Year();
   
-  if(thn < 2010){
-    Rtc.SetDateTime(RtcDateTime(2010, 10, 1,now.Hour(), now.Minute(), now.Second()));
-  }
+ 
   static uint32_t sv=0;
   uint32_t timer = millis();
   
