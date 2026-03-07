@@ -57,9 +57,9 @@ void check() {
         // Jumat - Dzuhur tidak adzan
         if (!(day == 5 && counter == 1)) {
           sholatNow = counter;
-//          adzan = 1;
-//          reset_x = 1;
-//          show = ANIM_ADZAN;
+          adzan = 1;
+          reset_x = 1;
+          show = ANIM_ADZAN;
           adzanFlag[counter] = true;
         }
       }

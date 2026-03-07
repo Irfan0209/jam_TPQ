@@ -45,6 +45,11 @@ void saveToEEPROM() {
     EEPROM.put(addr++, password[i]);
   }
 
+  for (uint8_t i = 0; i < 6; i++) {
+    EEPROM.put(addr, dataIhty[i]);
+    addr += sizeof(dataIhty[i]);
+  }
+
 #if defined(ESP8266) || defined(ESP32)
   EEPROM.commit();  // WAJIB untuk ESP
 #endif
@@ -133,4 +138,15 @@ void loadFromEEPROM() {
   password[PASSWORD_LEN - 1] = '\0'; // safety null-terminator
    Serial.print("password:");
    Serial.println(password);
+
+  Serial.print(F("dataIhty: "));
+  for (uint8_t i = 0; i < 6; i++) {
+    EEPROM.get(addr, dataIhty[i]);
+    addr += sizeof(dataIhty[i]);
+    
+    // Tampilkan ke Serial Monitor
+    Serial.print(dataIhty[i]); 
+    if (i < 5) Serial.print(F("-"));
+  }
+  Serial.println();
 }

@@ -21,7 +21,7 @@ void islam() {
     JWS.setIkhtiMa = dataIhty[3];
     JWS.setIkhtiIs = dataIhty[4];
     JWS.setIkhtiIm = dataIhty[5];
-    Hijir.Update(thn, bln, tgl, config.Correction);
+    //Hijir.Update(thn, bln, tgl, config.Correction);
     sv = timer;
   }
 }
