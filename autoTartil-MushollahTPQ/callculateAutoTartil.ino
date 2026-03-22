@@ -17,7 +17,7 @@ void cekDanPutarSholatNonBlocking() {
   static bool stateJadwal = false;
 
   // Cetak hanya sekali pada menit tertentu
-  if ((now.Minute() == 0 || now.Minute() == 15 || now.Minute() == 30 || now.Minute() == 45) && now.Second() == 0 && !stateJadwal) {
+  if ((now.Minute() == 0 || now.Minute() == 30) && now.Second() == 0 && !stateJadwal) {
     stateJadwal = true;
     stateSendSholat = 1;
   } else if (now.Second() != 0) {

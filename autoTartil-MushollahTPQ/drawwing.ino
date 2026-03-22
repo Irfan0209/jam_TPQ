@@ -1,4 +1,4 @@
-char* Jadwal[] = {" IMSAK"," SUBUH", "TERBIT", "DZUHUR", " ASHAR", "MAGRIB", " ISYA'"};
+char* Jadwal[] = {"IMSAK ","SUBUH ", "TERBIT", "DZUHUR", "ASHAR ", "MAGRIB", "ISYA' "};
 char* jadwalAzzan[] = {"SUBUH","DZUHUR", "ASHAR", "MAGRIB", "ISYA'"};
 
 void showDisplay(){
@@ -28,7 +28,8 @@ void showDisplay(){
   char dt[12];
   snprintf(dt, sizeof(dt), "%02d:%02d:%04d",now.Day(), now.Month(), now.Year());
 
-  dwCtr(0,0,timeBuf);
+  lcd.setCursor(0,0);
+  lcd.print(timeBuf);
   
   lcd.setCursor(0,1);
   lcd.print(tm);
