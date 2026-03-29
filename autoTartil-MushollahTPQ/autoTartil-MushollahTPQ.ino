@@ -8,6 +8,10 @@
 #include <WiFi.h>
 #include <WebServer.h>
 #include <LiquidCrystal_I2C.h>
+#include <esp_task_wdt.h>
+
+// Atur batas waktu WDT (misalnya 15 detik)
+constexpr uint8_t WDT_TIMEOUT = 15;
 
 //EEPROM AUTO TARTIL
 #define EEPROM_SIZE 3000
@@ -60,10 +64,10 @@ IPAddress subnet(255, 255, 255, 0);
 //#define DEBUG 1
 
 struct WaktuConfig {
-  byte aktif;
-  byte aktifAdzan;
+  bool aktif;
+  bool aktifAdzan;
   byte fileAdzan;
-  byte tartilDulu;
+  bool tartilDulu;
   byte folder;
   byte list[5];
 };
@@ -82,14 +86,14 @@ uint8_t    DHeight       = 2;
 WaktuConfig jadwal[HARI_TOTAL][WAKTU_TOTAL];
 uint8_t durasiAdzan[MAX_FILE];
 uint16_t durasiTartil[MAX_FOLDER][MAX_FILE];
-byte volumeDFPlayer ;
+uint8_t volumeDFPlayer ;
 uint8_t jamSholat[WAKTU_TOTAL]; //= {4, 12, 15, 18, 19};
 uint8_t menitSholat[WAKTU_TOTAL];// = {30, 0, 30, 0, 30};
 
 bool tartilSedangDiputar = false;
 uint32_t tartilMulaiMillis = 0;
-byte tartilFolder = 0;
-byte tartilIndex = 0;
+uint8_t tartilFolder = 0;
+uint8_t tartilIndex = 0;
 
 uint16_t tartilCounter = 0;
 uint16_t targetDurasi = 0;
@@ -110,7 +114,7 @@ uint32_t lastAdzanTick = 0;
 uint16_t adzanCounter = 0;
 uint16_t targetDurasiAdzan = 0;
 
-byte currentDay = 0;
+uint8_t currentDay = 0;
 
 // Tambahan untuk relay delay dan manual
 uint32_t relayOffDelayMillis = 0;
@@ -149,6 +153,7 @@ bool      adzan         = 0;
 bool      reset_x       = 0;
 bool      autoTartilEnable = true;
 bool      voiceClock = true; 
+bool      butuhHitungJadwal = true;
 
 byte ikonSpeaker[8] = {
   0b00001, //      *
@@ -191,6 +196,7 @@ void getData(const String& input) {
       stateSendSholat = atoi(ptr);
     } 
   }
+  butuhHitungJadwal = true;
 }
 
 void handleSetTime() {
@@ -244,36 +250,54 @@ void handleSetTime() {
     server.send(200, "text/plain", "OK");//"coreksi hijriah diupdate");
     return;
   }
-  if (server.hasArg("PLAY")) {
-    // 1. Ambil data mentah sebagai String hanya untuk parsing
-    String mentah = server.arg("PLAY"); 
+  // --- NAMAFILE ---
+  if (server.hasArg("NAMAFILE")) {
+    int folder = 0, file = 0, durasi = 0;
     
-    int idx = 0;
-    byte folder = getIntPart(mentah, idx);
-    byte file   = getIntPart(mentah, idx);
-
-    // 2. Format data langsung ke dalam dataBuffer
-    // %d adalah placeholder untuk integer/byte
-    snprintf(dataBuffer, sizeof(dataBuffer), "PLAY:%d,%d", folder, file);
-
-    // 3. Kirim data yang sudah rapi di buffer ke client
-    parseData(dataBuffer); 
-
-    server.send(200, "text/plain", "OK");
-    return; // Keluar dari fungsi agar lebih efisien
-}
-
-// --- PLAD ---
-  if (server.hasArg("PLAD")) {
-    String mentah = server.arg("PLAD");
-    int idx = 0;
-    byte file = getIntPart(mentah, idx);
-    snprintf(dataBuffer, sizeof(dataBuffer), "PLAD:%d", file);
+    // sscanf langsung mengekstrak angka dari format teks (misal: "1,15,120")
+    sscanf(server.arg("NAMAFILE").c_str(), "%d,%d,%d", &folder, &file, &durasi);
+    
+    snprintf(dataBuffer, sizeof(dataBuffer), "NAMAFILE:%d,%d,%d", folder, file, durasi);
     parseData(dataBuffer);
     server.send(200, "text/plain", "OK");
     return;
   }
 
+  // --- ADZAN ---
+  if (server.hasArg("ADZAN")) {
+    int file = 0, durasi = 0;
+    
+    sscanf(server.arg("ADZAN").c_str(), "%d,%d", &file, &durasi);
+    
+    snprintf(dataBuffer, sizeof(dataBuffer), "ADZAN:%d,%d", file, durasi);
+    parseData(dataBuffer);
+    server.send(200, "text/plain", "OK");
+    return;
+  }
+
+  // --- PLAY ---
+  if (server.hasArg("PLAY")) {
+    int folder = 0, file = 0;
+    
+    sscanf(server.arg("PLAY").c_str(), "%d,%d", &folder, &file);
+
+    snprintf(dataBuffer, sizeof(dataBuffer), "PLAY:%d,%d", folder, file);
+    parseData(dataBuffer); 
+    server.send(200, "text/plain", "OK");
+    return; // Keluar dari fungsi agar lebih efisien
+  }
+
+  // --- PLAD ---
+  if (server.hasArg("PLAD")) {
+    int file = 0;
+    
+    sscanf(server.arg("PLAD").c_str(), "%d", &file);
+    
+    snprintf(dataBuffer, sizeof(dataBuffer), "PLAD:%d", file);
+    parseData(dataBuffer);
+    server.send(200, "text/plain", "OK");
+    return;
+  }
   // --- STOP ---
   if (server.hasArg("STOP")) {
     parseData("STOP"); // Langsung kirim teks statis
@@ -296,32 +320,6 @@ void handleSetTime() {
     server.send(200, "text/plain", "OK");
     return;
   }
-
-  // --- NAMAFILE ---
-  if (server.hasArg("NAMAFILE")) {
-    String mentah = server.arg("NAMAFILE");
-    int idx = 0;
-    byte folder = getIntPart(mentah, idx);
-    byte file   = getIntPart(mentah, idx);
-    int durasi  = getIntPart(mentah, idx);
-    snprintf(dataBuffer, sizeof(dataBuffer), "NAMAFILE:%d,%d,%d", folder, file, durasi);
-    parseData(dataBuffer);
-    server.send(200, "text/plain", "OK");
-    return;
-  }
-
-  // --- ADZAN ---
-  if (server.hasArg("ADZAN")) {
-    String mentah = server.arg("ADZAN");
-    int idx = 0;
-    byte file  = getIntPart(mentah, idx);
-    int durasi = getIntPart(mentah, idx);
-    snprintf(dataBuffer, sizeof(dataBuffer), "ADZAN:%d,%d", file, durasi);
-    parseData(dataBuffer);
-    server.send(200, "text/plain", "OK");
-    return;
-  }
-
   // --- At ---
   if (server.hasArg("At")) {
     snprintf(dataBuffer, sizeof(dataBuffer), "At:%s", server.arg("At").c_str());
@@ -363,13 +361,13 @@ void handleSetTime() {
   }
 }
 
-int getIntPart(String &s, int &pos) {
-  int comma = s.indexOf(',', pos);
-  if (comma == -1) comma = s.length();
-  int val = s.substring(pos, comma).toInt();
-  pos = comma + 1;
-  return val;
-}
+//int getIntPart(String &s, int &pos) {
+//  int comma = s.indexOf(',', pos);
+//  if (comma == -1) comma = s.length();
+//  int val = s.substring(pos, comma).toInt();
+//  pos = comma + 1;
+//  return val;
+//}
 
 void AP_init() {
   WiFi.mode(WIFI_AP);
@@ -437,12 +435,24 @@ void setup() {
   digitalWrite(RELAY_PIN, HIGH); // Awal mati
   lcd.clear();
 
+  // --- Inisialisasi Watchdog Timer untuk ESP32 Core v3.x ---
+  esp_task_wdt_config_t wdt_config = {
+    .timeout_ms = WDT_TIMEOUT * 1000,                // Ubah satuan detik menjadi milidetik
+    .idle_core_mask = (1 << portNUM_PROCESSORS) - 1, // Memantau aktivitas di semua core
+    .trigger_panic = true                            // Paksa restart jika mikrokontroler hang
+  };
+  
+  esp_task_wdt_init(&wdt_config);
+  esp_task_wdt_add(NULL); // Daftarkan fungsi loop() ke dalam pengawasan anjing penjaga
+  Serial.println(F("Watchdog Timer Aktif!"));
+
 }
 
 void loop() {
   if (sudahEksekusi && millis() - lastTriggerMillis > 60000) {
     sudahEksekusi = false;
   }
+   esp_task_wdt_reset();
   server.handleClient();
   bacaDataSerial();
   cekDanPutarSholatNonBlocking();
@@ -466,22 +476,6 @@ void loop() {
   //checkHourlyChime();
 
 }
-
-/*/ --- Fungsi cek bunyi jam & setengah jam ---
-void checkHourlyChime() {
-  if(!voiceClock) return;
-
- static int lastHalfPlay = -1;
-
-  // Bunyi jam tepat
-  if (now.Minute() == 0 && now.Second() == 0 && now.Hour() != lastHalfPlay && tartilSedangDiputar==false && adzanSedangDiputar==false && manualSedangDiputar == false) {
-    lastHalfPlay = hour();
-    uint8_t jam = hour() % 12;
-    if (jam == 0) { jam = 12; }
-    dfplayer.volume(volumeDFPlayer);
-    dfplayer.play(jam);  // Folder 1 = suara jam 1-12
-  }
-}*/
 
 
 void bacaDataSerial() {
@@ -521,7 +515,8 @@ void bacaDataSerial() {
 void parseData(const char* data) {
   Serial.print(F("data=")); Serial.println(data);
   lastTimeReceived = millis();
-
+  butuhHitungJadwal = true;
+ 
   // --- Parsing TIME: ---
 
   const char* eq_ptr = strchr(data, '='); // Cari posisi '='
@@ -738,24 +733,44 @@ void parseData(const char* data) {
 
   // --- Parsing JWS: ---
   // Format asumi: JWS:jam1,menit1|jam2,menit2|jam3,menit3...
+ // Format asumi: JWS:jam1,menit1|jam2,menit2|jam3,menit3...
   else if (strncmp(data, "JWS:", 4) == 0) {
     const char* ptr = data + 4;
-    for (int i = 0; i < WAKTU_TOTAL; i++) {
-      jamSholat[i] = atoi(ptr);
+    bool adaPerubahan = false; // Flag penanda apakah ada data yang berubah
+
+    for (uint8_t i = 0; i < WAKTU_TOTAL; i++) {
+      uint8_t tempJam = atoi(ptr); // Tampung jam di variabel sementara
+
       ptr = strchr(ptr, ',');
       if (!ptr) break;
       ptr++; // Lewati koma
       
-      menitSholat[i] = atoi(ptr);
+      uint8_t tempMenit = atoi(ptr); // Tampung menit di variabel sementara
 
-      Serial.print(jamSholat[i]); Serial.print(F(":")); 
-      Serial.print(menitSholat[i]); Serial.print(F(" | "));
+      // Cek apakah data baru BERBEDA dengan data yang sedang berjalan di sistem
+      if (jamSholat[i] != tempJam || menitSholat[i] != tempMenit) {
+        jamSholat[i] = tempJam;     // Update array utama karena beda
+        menitSholat[i] = tempMenit; // Update array utama karena beda
+        adaPerubahan = true;        // Tandai bahwa ada perubahan data
+      }
+
+//      Serial.print(tempJam); Serial.print(F(":")); 
+//      Serial.print(tempMenit); Serial.print(F(" | "));
       
       ptr = strchr(ptr, '|');
       if (!ptr) break; // Jika tidak ada pemisah lagi, selesai
       ptr++; // Lewati pipa
     }
-    saveToEEPROM();
+
+//    Serial.println(); // Enter untuk merapikan Serial Monitor
+
+    // Eksekusi simpan HANYA jika terdeteksi ada perubahan angka
+    if (adaPerubahan) {
+//      Serial.println(F("[INFO] Jadwal sholat diubah, menyimpan ke EEPROM..."));
+      saveToEEPROM();
+    } else {
+//      Serial.println(F("[INFO] Jadwal sholat sama persis, abaikan EEPROM (Hemat Flash)."));
+    }
   }
 
   // --- Parsing At: --- (Auto Tartil)
@@ -917,7 +932,7 @@ uint8_t I2C_ClearBus() {
   return 0; // all ok
 }
 
-void Buzzer(uint8_t state)
+void Buzzer(bool state)
   {
     if(!config.stateBuzzer) return;
     

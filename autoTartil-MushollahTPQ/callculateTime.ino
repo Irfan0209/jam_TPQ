@@ -1,25 +1,41 @@
 void islam() {
-  
   RtcDateTime now = Rtc.GetDateTime();
-  uint8_t tgl = now.Day();
-  uint8_t bln = now.Month();
-  uint16_t thn = now.Year();
   
- 
-  static uint32_t sv=0;
-  uint32_t timer = millis();
-  
+  //cekJadwalPanel(now.Hour(), now.Minute());
 
-  if(timer - sv > 5000){
-    //RtcDateTime now = Rtc.GetDateTime();
-    JWS.Update(config.zonawaktu, config.latitude, config.longitude, config.altitude, thn, bln, tgl); // Jalankan fungsi ini untuk update jadwal sholat
+//  static int8_t lastHalfPlay = -1;
+//
+//  // Bunyi jam tepat
+//  if (now.Minute() == 0 && now.Second() == 0 && now.Hour() != lastHalfPlay && config.stateBuzzerClock) {
+//    lastHalfPlay = now.Hour();
+//    stateBuzzWar = 1;
+//  }
+
+  // --- PEMICU TENGAH MALAM (Ganti Hari) ---
+  // Pastikan jadwal dihitung ulang setiap jam 00:00:01
+  static int8_t lastDayCalc = -1;
+  if (now.Day() != lastDayCalc) {
+    lastDayCalc = now.Day();
+    butuhHitungJadwal = true; 
+  }
+
+  // Restart otomatis (opsional, dari kodemu)
+  if (now.Minute() == 0 && now.Second() == 0 && now.Hour() == 0){
+    Serial.println("restart");
+    // ESP.restart(); // (Aktifkan jika memang alat diset untuk restart harian)
+  }
+
+  // --- EKSEKUSI RUMUS HANYA JIKA FLAG AKTIF ---
+  if(butuhHitungJadwal){
+    JWS.Update(config.zonawaktu, config.latitude, config.longitude, config.altitude, now.Year(), now.Month(), now.Day());
     JWS.setIkhtiSu = dataIhty[0];
     JWS.setIkhtiDzu = dataIhty[1];
     JWS.setIkhtiAs = dataIhty[2];
     JWS.setIkhtiMa = dataIhty[3];
     JWS.setIkhtiIs = dataIhty[4];
-    JWS.setIkhtiIm = dataIhty[5];
-    //Hijir.Update(thn, bln, tgl, config.Correction);
-    sv = timer;
+    Hijir.Update(now.Year(), now.Month(), now.Day(), config.Correction);
+    
+    butuhHitungJadwal = false; // Matikan flag setelah selesai menghitung agar CPU kembali santai
+    Serial.println(F("[INFO] Jadwal Sholat dan Hijriah Berhasil Dikalkulasi Ulang!"));
   }
 }
